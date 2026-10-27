@@ -4,18 +4,22 @@ export interface HudStats {
   bodies: number;
   held: string | null;
   impacts: number;
+  spend: { total: number; cap: number } | null;
+  /** Click to freed (segment + compile) for the last object, as the backend measured it. */
+  lastFreeMs: number | null;
 }
 
 interface Props {
   stats: HudStats;
   xray: boolean;
   muted: boolean;
+  mode: 'demo' | 'fork';
   onToggleXray: () => void;
   onToggleMute: () => void;
   onReset: () => void;
 }
 
-export function Hud({ stats, xray, muted, onToggleXray, onToggleMute, onReset }: Props) {
+export function Hud({ stats, xray, muted, mode, onToggleXray, onToggleMute, onReset }: Props) {
   return (
     <aside className={`hud ${xray ? 'hud-xray' : ''}`}>
       <div className="hud-row">
@@ -25,9 +29,7 @@ export function Hud({ stats, xray, muted, onToggleXray, onToggleMute, onReset }:
         <button onClick={onToggleMute} aria-pressed={!muted}>
           Sound {muted ? 'off' : 'on'} <kbd>M</kbd>
         </button>
-        <button onClick={onReset}>
-          Reset <kbd>R</kbd>
-        </button>
+        <button onClick={onReset}>{mode === 'demo' ? <>Reset <kbd>R</kbd></> : 'Leave fork'}</button>
       </div>
       {xray && (
         <dl className="hud-stats">
@@ -41,8 +43,14 @@ export function Hud({ stats, xray, muted, onToggleXray, onToggleMute, onReset }:
           <dd>{stats.held ?? 'nothing'}</dd>
           <dt>Impacts</dt>
           <dd>{stats.impacts}</dd>
+          {stats.lastFreeMs !== null && (
+            <>
+              <dt>Last free</dt>
+              <dd>{stats.lastFreeMs} ms (segment + outline)</dd>
+            </>
+          )}
           <dt>Model API spend</dt>
-          <dd>$0.00 · offline scene</dd>
+          <dd>{stats.spend ? `$${stats.spend.total.toFixed(3)} of $${stats.spend.cap.toFixed(2)} cap` : '$0.00 · offline'}</dd>
         </dl>
       )}
       {xray && (

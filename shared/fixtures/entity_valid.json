@@ -1,0 +1,11 @@
+[
+  {
+    "id": "obj_1",
+    "label": "object",
+    "polygon_px": [[380, 380], [610, 380], [610, 430], [700, 430], [700, 560], [380, 560]],
+    "sprite_url": "/asset/f_abc/sprite_obj_1.webp?sig=deadbeef",
+    "sprite_bbox": { "x": 380, "y": 380, "w": 320, "h": 180 },
+    "physics": { "mass_kg": 5, "restitution": 0.3, "friction": 0.6 },
+    "acoustic_material": "wood"
+  }
+]

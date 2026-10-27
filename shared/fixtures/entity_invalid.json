@@ -1,0 +1,5 @@
+[
+  { "id": "obj_1", "label": "object", "polygon_px": [[0, 0], [1, 1]], "sprite_url": "/a", "sprite_bbox": { "x": 0, "y": 0, "w": 1, "h": 1 }, "physics": { "mass_kg": 5, "restitution": 0.3, "friction": 0.6 }, "acoustic_material": "wood" },
+  { "id": "Obj 1", "label": "object", "polygon_px": [[0, 0], [1, 1], [0, 1]], "sprite_url": "/a", "sprite_bbox": { "x": 0, "y": 0, "w": 1, "h": 1 }, "physics": { "mass_kg": 5, "restitution": 0.3, "friction": 0.6 }, "acoustic_material": "wood" },
+  { "id": "obj_1", "label": "object", "polygon_px": [[0, 0], [1, 1], [0, 1]], "sprite_url": "/a", "sprite_bbox": { "x": 0, "y": 0, "w": 0, "h": 1 }, "physics": { "mass_kg": 5, "restitution": 0.3, "friction": 0.6 }, "acoustic_material": "wood" }
+]

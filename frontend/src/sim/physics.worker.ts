@@ -47,8 +47,14 @@ ctx.onmessage = async (e) => {
       last = performance.now();
       acc = 0;
       if (timer === null) timer = setInterval(tick, 1000 / 120);
-    } else if (msg.type === 'pointer' && sim) {
-      if (msg.phase === 'down') sim.grab(msg.x, msg.y);
+    } else if (!sim) {
+      return;
+    } else if (msg.type === 'add') {
+      ctx.postMessage({ type: 'added', id: msg.spec.id, geometry: sim.addEntity(msg.spec) });
+    } else if (msg.type === 'patch') {
+      sim.patch(msg.id, msg.grounding);
+    } else if (msg.type === 'pointer') {
+      if (msg.phase === 'down') ctx.postMessage({ type: 'grab', seq: msg.seq, id: sim.grab(msg.x, msg.y), x: msg.x, y: msg.y });
       else if (msg.phase === 'move') sim.drag(msg.x, msg.y);
       else sim.release();
     }

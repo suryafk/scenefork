@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scenefork/entity.schema.json",
+  "title": "FreedEntity",
+  "description": "One object freed by a click: what the backend sends in a `freed` message and the frontend turns into a physics body.",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "label": { "type": "string" },
+    "polygon_px": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 64,
+      "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+    },
+    "sprite_url": { "type": "string" },
+    "sprite_bbox": {
+      "type": "object",
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "w": { "type": "number", "exclusiveMinimum": 0 }, "h": { "type": "number", "exclusiveMinimum": 0 } },
+      "required": ["x", "y", "w", "h"],
+      "additionalProperties": false
+    },
+    "physics": {
+      "type": "object",
+      "properties": {
+        "mass_kg": { "type": "number", "exclusiveMinimum": 0 },
+        "restitution": { "type": "number", "minimum": 0, "maximum": 0.95 },
+        "friction": { "type": "number", "minimum": 0 }
+      },
+      "required": ["mass_kg", "restitution", "friction"],
+      "additionalProperties": false
+    },
+    "acoustic_material": { "type": "string" }
+  },
+  "required": ["id", "label", "polygon_px", "sprite_url", "sprite_bbox", "physics", "acoustic_material"],
+  "additionalProperties": false
+}

@@ -44,6 +44,19 @@ describe('toConvexParts', () => {
     expect(toConvexParts([[0, 0], [50, 0], [50, 40], [0, 40]])).toHaveLength(1);
   });
 
+  it('stays fast on a jagged 48-vertex outline (a worst-case SAM contour)', () => {
+    const jagged: Point[] = Array.from({ length: 48 }, (_, i) => {
+      const a = (i / 48) * Math.PI * 2;
+      const r = i % 2 ? 120 : 70;
+      return [Math.round(400 + r * Math.cos(a)), Math.round(300 + r * Math.sin(a))];
+    });
+    const t0 = performance.now();
+    const parts = toConvexParts(jagged);
+    expect(performance.now() - t0).toBeLessThan(50);
+    expect(parts.length).toBeGreaterThanOrEqual(1);
+    expect(parts.length).toBeLessThanOrEqual(4);
+  });
+
   it('falls back to the convex hull for a self-intersecting outline', () => {
     const bowtie: Point[] = [[0, 0], [40, 40], [40, 0], [0, 40]];
     expect(toConvexParts(bowtie)).toHaveLength(1);

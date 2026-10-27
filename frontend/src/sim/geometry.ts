@@ -1,4 +1,4 @@
-import { decomp, isSimple, makeCCW, quickDecomp, removeCollinearPoints, removeDuplicatePoints } from 'poly-decomp-es';
+import { isSimple, makeCCW, quickDecomp, removeCollinearPoints, removeDuplicatePoints } from 'poly-decomp-es';
 import type { Point } from './types';
 
 const MAX_PARTS = 4;
@@ -66,12 +66,10 @@ export function toConvexParts(poly: Point[]): Point[][] {
   const hull = convexHull(work);
   // Already convex: one part.
   if (hull.length === work.length) return [hull];
-  let parts = quickDecomp(work);
-  if (!parts.length || parts.length > MAX_PARTS) {
-    const exact = decomp(work);
-    parts = exact && exact.length <= MAX_PARTS ? exact : [];
-  }
-  if (!parts.length) return [hull];
+  // Bayazit's quick decomposition only: the exact `decomp` is exponential in the vertex count
+  // and froze the physics worker on a 20-vertex outline. Too many parts → one convex hull.
+  const parts = quickDecomp(work);
+  if (!parts.length || parts.length > MAX_PARTS) return [hull];
   return parts.map((p) => convexHull(p)).filter((p) => p.length >= 3);
 }
 

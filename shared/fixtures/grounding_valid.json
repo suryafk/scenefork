@@ -1,0 +1,4 @@
+[
+  { "label": "red truck", "body_type": "dynamic", "mass_kg": 2500, "restitution": 0.1, "friction": 0.8, "acoustic_material": "hollow_metal", "approx_height_m": 2.8 },
+  { "label": "coffee mug", "body_type": "dynamic", "mass_kg": 0.35, "restitution": 0.15, "friction": 0.5, "acoustic_material": "ceramic", "approx_height_m": 0.1 }
+]

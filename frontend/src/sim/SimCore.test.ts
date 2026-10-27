@@ -204,3 +204,78 @@ describe('collision events', () => {
     sim.free();
   });
 });
+
+describe('runtime entities (click-to-free)', () => {
+  const groundingFor = (mass: number, extra: Partial<import('./types').Grounding> = {}): import('./types').Grounding => ({
+    label: 'thing', body_type: 'dynamic', mass_kg: mass, restitution: 0.2, friction: 0.7,
+    acoustic_material: 'ceramic', approx_height_m: 0.5, ...extra,
+  });
+
+  it('adds a freed object that rests on its own floor and can be grabbed', () => {
+    const sim = new SimCore(scene([]));
+    const geo = sim.addEntity(entity('obj_1', box(500, 400, 80, 80), 5));
+    expect(sim.ids).toEqual(['obj_1']);
+    expect(geo.floor_px?.y).toBeCloseTo(481);
+    const p0 = sim.pose('obj_1');
+    run(sim, 90);
+    expect(dist(sim.pose('obj_1'), p0)).toBeLessThan(3);
+    expect(sim.grab(540, 440)).toBe('obj_1');
+    sim.free();
+  });
+
+  it('exempts a new object that overlaps one already freed', () => {
+    const sim = new SimCore(scene([]));
+    sim.addEntity(entity('obj_1', box(500, 400, 120, 120), 5));
+    sim.addEntity(entity('obj_2', box(560, 470, 100, 100), 5));
+    expect(sim.isExempt('obj_1', 'obj_2')).toBe(true);
+    run(sim, 30);
+    expect(Math.hypot(sim.pose('obj_2').vx, sim.pose('obj_2').vy)).toBeLessThan(20);
+    sim.free();
+  });
+
+  it('rejects duplicate ids', () => {
+    const sim = new SimCore(scene([]));
+    sim.addEntity(entity('obj_1', box(500, 400, 80, 80), 5));
+    expect(() => sim.addEntity(entity('obj_1', box(100, 400, 80, 80), 5))).toThrow(/duplicate/);
+    sim.free();
+  });
+
+  it('applies grounding only once the body is at rest and not held', () => {
+    const sim = new SimCore(scene([]));
+    sim.addEntity(entity('obj_1', box(500, 300, 80, 80), 5));
+    sim.addEntity(entity('obj_2', box(200, 300, 60, 60), 5));
+    sim.grab(540, 340);
+    sim.patch('obj_1', groundingFor(500));
+    for (let i = 0; i < 20; i++) {
+      sim.drag(540, 200);
+      sim.step();
+    }
+    expect(sim.massOf('obj_1')).toBeCloseTo(5, 1); // still held: not applied
+    sim.release();
+    run(sim, 240); // falls, lands, settles
+    expect(sim.massOf('obj_1')).toBeGreaterThan(100);
+    expect(sim.labelOf('obj_1')).toBe('thing');
+    sim.free();
+  });
+
+  it('turns an object grounded as fixed into a static body', () => {
+    const sim = new SimCore(scene([]));
+    sim.addEntity(entity('pole', box(600, 200, 20, 300), 5));
+    sim.patch('pole', groundingFor(80, { body_type: 'fixed', label: 'street pole' }));
+    run(sim, 5);
+    expect(sim.isDynamic('pole')).toBe(false);
+    expect(sim.grab(610, 300)).toBeNull();
+    sim.free();
+  });
+
+  it('keeps the heaviest/lightest ratio at 200 as masses change', () => {
+    const sim = new SimCore(scene([]));
+    sim.addEntity(entity('a', box(100, 400, 60, 60), 5));
+    sim.addEntity(entity('b', box(400, 400, 60, 60), 5));
+    sim.patch('a', groundingFor(3000));
+    sim.patch('b', groundingFor(0.3));
+    run(sim, 3);
+    expect(sim.massOf('a') / sim.massOf('b')).toBeCloseTo(200, 3);
+    sim.free();
+  });
+});

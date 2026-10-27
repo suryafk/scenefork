@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scenefork/grounding.schema.json",
+  "title": "Grounding",
+  "description": "Muse Spark's physical guess for one freed object. Also the json_schema sent to the model, so keep it non-recursive and strict.",
+  "type": "object",
+  "properties": {
+    "label": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "body_type": { "type": "string", "enum": ["dynamic", "fixed"] },
+    "mass_kg": { "type": "number", "minimum": 0.05, "maximum": 5000 },
+    "restitution": { "type": "number", "minimum": 0, "maximum": 0.95 },
+    "friction": { "type": "number", "minimum": 0, "maximum": 1.5 },
+    "acoustic_material": {
+      "type": "string",
+      "enum": ["hollow_metal", "solid_metal", "glass", "ceramic", "wood", "rubber", "plastic", "flesh_cloth", "concrete", "water"]
+    },
+    "approx_height_m": { "type": "number", "minimum": 0.01, "maximum": 100 }
+  },
+  "required": ["label", "body_type", "mass_kg", "restitution", "friction", "acoustic_material", "approx_height_m"],
+  "additionalProperties": false
+}

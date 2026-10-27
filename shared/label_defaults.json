@@ -1,0 +1,26 @@
+{
+  "_doc": "Physics an object gets the moment it is freed, before grounding returns (design step 5). Keys are matched against the grounded label; 'default' covers everything else, including the first seconds before any label exists.",
+  "default": { "mass_kg": 5, "restitution": 0.3, "friction": 0.6, "acoustic_material": "wood" },
+  "keywords": {
+    "truck": { "mass_kg": 2500, "restitution": 0.15, "friction": 0.7, "acoustic_material": "hollow_metal" },
+    "car": { "mass_kg": 1300, "restitution": 0.15, "friction": 0.7, "acoustic_material": "hollow_metal" },
+    "van": { "mass_kg": 2000, "restitution": 0.15, "friction": 0.7, "acoustic_material": "hollow_metal" },
+    "bike": { "mass_kg": 12, "restitution": 0.2, "friction": 0.6, "acoustic_material": "solid_metal" },
+    "cone": { "mass_kg": 3, "restitution": 0.3, "friction": 0.8, "acoustic_material": "plastic" },
+    "ball": { "mass_kg": 0.5, "restitution": 0.85, "friction": 0.9, "acoustic_material": "rubber" },
+    "mug": { "mass_kg": 0.35, "restitution": 0.15, "friction": 0.5, "acoustic_material": "ceramic" },
+    "cup": { "mass_kg": 0.3, "restitution": 0.15, "friction": 0.5, "acoustic_material": "ceramic" },
+    "bottle": { "mass_kg": 0.5, "restitution": 0.25, "friction": 0.5, "acoustic_material": "glass" },
+    "glass": { "mass_kg": 0.3, "restitution": 0.2, "friction": 0.4, "acoustic_material": "glass" },
+    "box": { "mass_kg": 8, "restitution": 0.2, "friction": 0.7, "acoustic_material": "wood" },
+    "crate": { "mass_kg": 15, "restitution": 0.2, "friction": 0.7, "acoustic_material": "wood" },
+    "book": { "mass_kg": 0.8, "restitution": 0.1, "friction": 0.7, "acoustic_material": "wood" },
+    "chair": { "mass_kg": 7, "restitution": 0.2, "friction": 0.6, "acoustic_material": "wood" },
+    "person": { "mass_kg": 70, "restitution": 0.1, "friction": 0.8, "acoustic_material": "flesh_cloth" },
+    "dog": { "mass_kg": 20, "restitution": 0.15, "friction": 0.8, "acoustic_material": "flesh_cloth" },
+    "bin": { "mass_kg": 20, "restitution": 0.2, "friction": 0.6, "acoustic_material": "hollow_metal" },
+    "can": { "mass_kg": 0.4, "restitution": 0.3, "friction": 0.5, "acoustic_material": "hollow_metal" },
+    "laptop": { "mass_kg": 1.5, "restitution": 0.1, "friction": 0.6, "acoustic_material": "plastic" },
+    "phone": { "mass_kg": 0.2, "restitution": 0.15, "friction": 0.6, "acoustic_material": "glass" }
+  }
+}

@@ -9,7 +9,10 @@ Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude
 - Frontend (Vitest, headless in Node, with Rapier running in WASM): `pnpm --dir frontend test`
 - Typecheck plus production build (also bundles the physics worker): `pnpm --dir frontend build`
 - Dev server: `pnpm --dir frontend dev` (the `frontend` entry in `.claude/launch.json`, port 5173)
-- Backend (pytest with fake model adapters): `cd backend && uv run pytest` (from Phase 2)
+- Backend (pytest; fake adapters and stubbed API objects, no network, no credits): `cd backend && uv run pytest`
+- Backend server: `cd backend && uv run uvicorn app.asgi:app --port 8000` (the `backend` entry in `.claude/launch.json`). It uses free fake models unless `SCENEFORK_ADAPTERS=live` is set in `backend/.env`.
+- Contract fixtures in `shared/fixtures/` are checked by both stacks (`backend/tests/test_contracts.py`, `frontend/src/contracts.test.ts`).
+- In dev builds, `window.__sfTrace` holds the fork/physics event trace, for browser-driven checks.
 - Playwright E2E is built after the first end-to-end golden demo works (eng review OV12).
 
 ## Meta Model API credit budget

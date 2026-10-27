@@ -49,3 +49,30 @@ Run `cd backend && uv run python scripts/probe_models.py`. Raw outputs are in `b
    Also: about 10.5s per edit means live plates arrive well after the object lifts. The blurred patch placeholder (step 6) is needed, not optional.
 4. **Voice:** the file endpoint took about 5.5s for 1.5s of audio, too slow for presets, which confirms OV5 (Chrome Web Speech primary). The realtime WebSocket with partials remains untested; probe it in Phase 3 before choosing it for the Meta-tooling story.
 5. **Cost of this probe run:** about 2 Spark calls plus 3 more runs, 2 SAM images, 1 edit and 1.5s of audio, which comes to roughly $0.03 [estimated from the pricing table].
+
+## Phase 2 live smoke test (2026-10-27, demo street, full stack)
+
+Run through the real app (browser → WebSocket → live adapters), with `SPEND_CAP_USD=1`. Total: **$0.0433** (3 SAM clicks, 3 groundings, 3 Muse Image edits).
+
+| Click | SAM 3.1 (click to freed) | Outline | Grounding (muse-spark-1.3, minimal) | Clean plate (muse-image-1.0) |
+|---|---|---|---|---|
+| Truck | 2.56 s | 7 vertices, matches the truck | `delivery_truck`, 3500 kg, hollow_metal, 2.8 m | Truck removed cleanly, but the whole scene was re-rendered (see below) |
+| Road just below a cone (a bad click) | 5.2 s (queued behind the truck) | 36 vertices: the entire road + sidewalk strip | `delivery truck`, 3500 kg (wrong: the huge outline confused it) | Composite shows white speckles across the strip |
+| Small cone (fresh fork) | 1.92 s | 33 vertices, matches the cone | `traffic cone`, plastic, 0.5 kg, 0.7 m | Hole fills cleanly, with a faint dark smudge at the road edge |
+
+### Findings
+1. **SAM 3.1 point prompts are reliable on real objects.** It took 1.9-2.6 s per click from home, and outlines matched both objects.
+2. **Grounding is good when the outline is an object** (truck and cone labels, masses and materials are all sensible) and garbage when the outline is background.
+3. **Muse Image regenerates the entire frame**, not just the marked area. In all three edits the buildings came back in a different layout, objects outside the marked area moved, and the large edit also deleted the other objects and redrew the buildings taller. Aligning the edit before pasting it back cannot fix changed content. So the paste is only clean when the hole is small and its surroundings are simple (the cone), and it shows seams or speckles for large holes.
+4. **Background slips through the reject rules:** the road/sidewalk strip touched only one frame edge and covered under 60%, so it was accepted as an object.
+
+### Recommended fixes (done 2026-10-27, see below)
+- **Crop before editing:** send Muse Image only the area around the hole (the bounding box plus about 50% margin, at the crop's own resolution), so there is less scene for it to re-imagine. Then align and paste the crop back. Same $0.01 per edit.
+- **Golden plates stay offline and hand-touched (OV9).** Use Telea, or a cropped Muse edit, for live clips.
+- **Reject masks wider than about 75% of the frame** (ground and sidewalk strips), and objects that grounding returns as `fixed` with a label like road, sidewalk, sky or wall.
+
+
+### Re-check after the fixes (2026-10-27)
+- **Cropped edit:** Muse Image now only sees the region's neighborhood (the bounding box plus 50% margin on each side, at least 256px, so 640×360 for the truck). Freeing the truck again gave a background where the buildings continue naturally behind it, with the same windows and layout as the original, and the nearby cone untouched. Remaining flaws: the curb in the filled area sits a few pixels off at the crop edge, and a faint shadow smudge stays on the road. That's good enough for live clips; golden clips still get hand-touched plates (OV9).
+- SAM and grounding replayed from the dev cache (free). The only charge was the edit: **$0.01**. Ledger total for Phase 2: **$0.0533**.
+- **Background reject:** masks wider than 75% of the frame are refused (the road strip was 79%), and labels naming scenery (road, sidewalk, wall and so on) are pinned `fixed`. Both are tested on fakes.

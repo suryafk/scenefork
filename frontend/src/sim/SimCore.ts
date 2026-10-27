@@ -2,7 +2,7 @@
 // Pure: no Pixi, no DOM. Rapier runs in meters; pixels only cross this boundary through
 // `pixels_per_meter`.
 import RAPIER from '@dimforge/rapier2d-compat';
-import { boundingBox, compressMasses, pointInPolygon, polygonArea, polygonCentroid, toConvexParts } from './geometry';
+import { boundingBox, compressMasses, polygonArea, polygonCentroid, toConvexParts } from './geometry';
 import {
   FLAG_FLOOR_ACTIVE,
   FLAG_HELD,
@@ -11,6 +11,7 @@ import {
   type CollisionEvent,
   type EntityGeometry,
   type EntitySpec,
+  type Grounding,
   type Point,
   type SceneManifest,
 } from './types';
@@ -48,6 +49,10 @@ interface BodyRec {
   colliders: RAPIER.Collider[];
   dynamic: boolean;
   massKg: number;
+  /** Mass before compression; grounding replaces it. */
+  rawMassKg: number;
+  /** Each part collider's share of the body's area, for splitting mass. */
+  areaFractions: number[];
   material: AcousticMaterial;
   centroidPx: Point;
   partsLocalPx: Point[][];
@@ -91,6 +96,8 @@ export class SimCore {
   private readonly ground: RAPIER.RigidBody;
   private held: Held | null = null;
   private stepCount = 0;
+  /** Grounding results waiting for their body to come to rest (design step 5). */
+  private readonly pendingPatches = new Map<string, Grounding>();
 
   private readonly hooks: RAPIER.PhysicsHooks = {
     filterContactPair: (c1, c2) => {
@@ -121,14 +128,72 @@ export class SimCore {
     this.ground = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
     this.buildBounds();
 
-    const dynamicSpecs = manifest.entities.filter((e) => e.body_type === 'dynamic');
-    const masses = compressMasses(dynamicSpecs.map((e) => e.physics.mass_kg));
-    const massById = new Map(dynamicSpecs.map((e, i) => [e.id, masses[i]]));
-    for (const spec of manifest.entities) this.buildEntity(spec, massById.get(spec.id) ?? 0);
+    for (const spec of manifest.entities) this.buildEntity(spec);
     // Collider poses are only written during a step; shape tests at spawn need them now.
     this.world.propagateModifiedBodyPositionsToColliders();
     this.findSpawnOverlaps();
+    this.rebalanceMasses();
     for (const rec of this.recs.values()) if (rec.dynamic) this.buildOwnFloor(rec);
+  }
+
+  /** Free one more object into the running world (click-to-free). */
+  addEntity(spec: EntitySpec): EntityGeometry {
+    if (this.recs.has(spec.id)) throw new Error(`duplicate entity ${spec.id}`);
+    const rec = this.buildEntity(spec);
+    this.world.propagateModifiedBodyPositionsToColliders();
+    if (rec.dynamic) {
+      for (const other of this.recs.values()) {
+        if (other !== rec && other.dynamic && this.partsIntersect(rec, other)) {
+          this.exempt.set(pairKey(rec.id, other.id), { a: rec, b: other, clearSteps: 0 });
+        }
+      }
+      this.rebalanceMasses();
+      this.buildOwnFloor(rec);
+    }
+    return this.geometryOf(rec);
+  }
+
+  /** Queue grounded physics for an entity; applied once it is at rest and not held. */
+  patch(id: string, g: Grounding): void {
+    if (this.recs.has(id)) this.pendingPatches.set(id, g);
+  }
+
+  /** Compress raw masses across all dynamic bodies (OV7: ratio at most 200:1) and apply them. */
+  private rebalanceMasses(): void {
+    const dyn = [...this.recs.values()].filter((r) => r.dynamic);
+    const masses = compressMasses(dyn.map((r) => r.rawMassKg));
+    dyn.forEach((rec, i) => {
+      rec.colliders.forEach((c, j) => c.setMass(masses[i] * rec.areaFractions[j]));
+      rec.massKg = masses[i];
+    });
+  }
+
+  private applyPendingPatches(): void {
+    for (const [id, g] of this.pendingPatches) {
+      const rec = this.recs.get(id)!;
+      if (this.held?.rec === rec) continue;
+      const v = rec.body.linvel();
+      if (Math.hypot(v.x, v.y) > 0.3 || Math.abs(rec.body.angvel()) > 0.5) continue;
+      this.pendingPatches.delete(id);
+      rec.spec = { ...rec.spec, label: g.label, acoustic_material: g.acoustic_material };
+      rec.material = g.acoustic_material;
+      for (const c of rec.colliders) {
+        c.setRestitution(g.restitution);
+        c.setFriction(g.friction);
+      }
+      if (!rec.dynamic) continue;
+      if (g.body_type === 'fixed') {
+        // A wall or pole the user freed by mistake stops moving, at rest where it is.
+        rec.body.setBodyType(RAPIER.RigidBodyType.Fixed, false);
+        rec.dynamic = false;
+        rec.floorActive = false;
+        rec.massKg = 0;
+        this.rebalanceMasses();
+      } else {
+        rec.rawMassKg = g.mass_kg;
+        this.rebalanceMasses();
+      }
+    }
   }
 
   private buildBounds(): void {
@@ -145,7 +210,7 @@ export class SimCore {
     add(RAPIER.ColliderDesc.cuboid(1, h * 3).setTranslation(w + 1, 0));
   }
 
-  private buildEntity(spec: EntitySpec, massKg: number): void {
+  private buildEntity(spec: EntitySpec): BodyRec {
     const ppm = this.ppm;
     const dynamic = spec.body_type === 'dynamic';
     const centroid = polygonCentroid(spec.polygon_px);
@@ -158,11 +223,12 @@ export class SimCore {
 
     const partsLocalPx = parts.map((part) => part.map(([x, y]): Point => [x - centroid[0], y - centroid[1]]));
     const colliders: RAPIER.Collider[] = [];
+    const areaFractions: number[] = [];
     partsLocalPx.forEach((local, i) => {
       const desc = RAPIER.ColliderDesc.convexHull(new Float32Array(local.flatMap(([x, y]) => [x / ppm, y / ppm])));
       if (!desc) return;
       this.configurePart(desc, spec);
-      if (dynamic) desc.setMass((massKg * polygonArea(parts[i])) / totalArea);
+      areaFractions.push(polygonArea(parts[i]) / totalArea);
       colliders.push(this.world.createCollider(desc, body));
     });
     if (!colliders.length) {
@@ -172,7 +238,8 @@ export class SimCore {
         (bb.y + bb.h / 2 - centroid[1]) / ppm,
       );
       this.configurePart(desc, spec);
-      if (dynamic) desc.setMass(massKg);
+      areaFractions.length = 0;
+      areaFractions.push(1);
       colliders.push(this.world.createCollider(desc, body));
     }
     for (const c of colliders) this.colliderOwner.set(c.handle, spec.id);
@@ -185,7 +252,9 @@ export class SimCore {
       body,
       colliders,
       dynamic,
-      massKg: dynamic ? body.mass() : 0,
+      massKg: 0,
+      rawMassKg: dynamic ? spec.physics.mass_kg : 0,
+      areaFractions,
       material: spec.acoustic_material,
       centroidPx: centroid,
       partsLocalPx,
@@ -199,19 +268,19 @@ export class SimCore {
     };
     this.recs.set(spec.id, rec);
     this.ids.push(spec.id);
+    return rec;
   }
 
   private buildOwnFloor(rec: BodyRec): void {
     // An object resting on another dynamic object (a bottle on a crate) gets no own floor:
     // its supporter holds it up, so it falls when the supporter is pulled away. A pair that
     // overlaps on screen is one object in front of another, not support.
-    const below: Point = [rec.centroidPx[0], rec.floorY * this.ppm + 2];
-    const supported = this.manifest.entities.some(
-      (o) =>
-        o.id !== rec.id &&
-        o.body_type === 'dynamic' &&
-        !this.isExempt(o.id, rec.id) &&
-        pointInPolygon(below, o.polygon_px),
+    // Tested against where the other bodies are now, not where they were painted, since
+    // objects freed later can land on (or next to) ones already moved.
+    const t = rec.body.translation();
+    const below = { x: t.x, y: t.y + rec.bottomOffset + 2 / this.ppm };
+    const supported = [...this.recs.values()].some(
+      (o) => o !== rec && o.dynamic && !this.isExempt(o.id, rec.id) && o.colliders.some((c) => c.containsPoint(below)),
     );
     if (supported) return;
     // Own floor (eng review: floors via the contact filter, not collision groups): a segment
@@ -343,6 +412,7 @@ export class SimCore {
   }
 
   step(): CollisionEvent[] {
+    this.applyPendingPatches();
     this.applyDrag();
     // Impact speed must be measured before the solver resolves the contact.
     for (const rec of this.recs.values()) {
@@ -402,19 +472,28 @@ export class SimCore {
   }
 
   geometry(): EntityGeometry[] {
-    return this.ids.map((id) => {
-      const rec = this.recs.get(id)!;
-      return {
-        id,
-        label: rec.spec.label,
-        dynamic: rec.dynamic,
-        mass_kg: rec.massKg,
-        material: rec.material,
-        centroid_px: rec.centroidPx,
-        parts_local_px: rec.partsLocalPx,
-        floor_px: rec.dynamic ? { y: rec.floorY * this.ppm, x1: rec.floorX1 * this.ppm, x2: rec.floorX2 * this.ppm } : null,
-      };
-    });
+    return this.ids.map((id) => this.geometryOf(this.recs.get(id)!));
+  }
+
+  private geometryOf(rec: BodyRec): EntityGeometry {
+    return {
+      id: rec.id,
+      label: rec.spec.label,
+      dynamic: rec.dynamic,
+      mass_kg: rec.massKg,
+      material: rec.material,
+      centroid_px: rec.centroidPx,
+      parts_local_px: rec.partsLocalPx,
+      floor_px: rec.dynamic ? { y: rec.floorY * this.ppm, x1: rec.floorX1 * this.ppm, x2: rec.floorX2 * this.ppm } : null,
+    };
+  }
+
+  labelOf(id: string): string | undefined {
+    return this.recs.get(id)?.spec.label;
+  }
+
+  isDynamic(id: string): boolean {
+    return this.recs.get(id)?.dynamic ?? false;
   }
 
   /** Pose of one entity in pixels (tests and debugging). */

@@ -1,5 +1,6 @@
 // Phase 1 stand-in for a forked frame: a street scene with hand-made outlines in place of
 // SAM masks and a painted clean plate in place of Muse Image. No model calls, no credits.
+import { boundingBox } from '../sim/geometry';
 import type { EntitySpec, Point, SceneManifest } from '../sim/types';
 
 export const WIDTH = 1280;
@@ -244,5 +245,16 @@ export function paintSprite(spec: EntitySpec, bbox: { x: number; y: number; w: n
   ctx.fillRect(0, 0, c.width, c.height);
   style.detail?.(ctx, bbox.x, bbox.y);
   ctx.restore();
+  return c;
+}
+
+/** The street as a camera would see it (plate plus every object): a test frame to fork. */
+export function paintFullFrame(): HTMLCanvasElement {
+  const c = paintPlate();
+  const ctx = c.getContext('2d')!;
+  for (const spec of [...entities].sort((a, b) => a.z_index - b.z_index)) {
+    const bbox = boundingBox(spec.polygon_px);
+    ctx.drawImage(paintSprite(spec, bbox), bbox.x, bbox.y);
+  }
   return c;
 }

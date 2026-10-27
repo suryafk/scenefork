@@ -26,6 +26,17 @@ export interface EntitySpec {
   z_index: number;
 }
 
+/** Muse Spark's physical guess for a freed object (shared/grounding.schema.json). */
+export interface Grounding {
+  label: string;
+  body_type: 'dynamic' | 'fixed';
+  mass_kg: number;
+  restitution: number;
+  friction: number;
+  acoustic_material: AcousticMaterial;
+  approx_height_m: number;
+}
+
 export interface SceneManifest {
   scene_id: string;
   resolution: { width: number; height: number };
@@ -69,10 +80,15 @@ export interface EntityGeometry {
 
 export type MainToWorker =
   | { type: 'init'; manifest: SceneManifest }
-  | { type: 'pointer'; phase: 'down' | 'move' | 'up'; x: number; y: number };
+  | { type: 'add'; spec: EntitySpec }
+  | { type: 'patch'; id: string; grounding: Grounding }
+  | { type: 'pointer'; phase: 'down' | 'move' | 'up'; x: number; y: number; seq: number };
 
 export type WorkerToMain =
   | { type: 'ready'; ids: string[]; geometry: EntityGeometry[] }
+  | { type: 'added'; id: string; geometry: EntityGeometry }
+  /** Reply to a pointer down: which entity it grabbed, if any (null: a click on the frame). */
+  | { type: 'grab'; seq: number; id: string | null; x: number; y: number }
   | {
       type: 'frame';
       buf: Float32Array;
