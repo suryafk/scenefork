@@ -18,3 +18,7 @@ dist/
 
 # probe outputs (images, audio, raw model responses)
 backend/scripts/probe_out/
+
+# local spend ledger and dev response cache
+backend/.spend/
+backend/.cache/
