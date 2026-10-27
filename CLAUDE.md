@@ -4,6 +4,14 @@
 
 Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude-in-chrome__*` tools.
 
+## Testing
+
+- Frontend (Vitest, headless in Node, with Rapier running in WASM): `pnpm --dir frontend test`
+- Typecheck plus production build (also bundles the physics worker): `pnpm --dir frontend build`
+- Dev server: `pnpm --dir frontend dev` (the `frontend` entry in `.claude/launch.json`, port 5173)
+- Backend (pytest with fake model adapters): `cd backend && uv run pytest` (from Phase 2)
+- Playwright E2E is built after the first end-to-end golden demo works (eng review OV12).
+
 ## Meta Model API credit budget
 
 The whole project has **$150 of Model API credit**, and it must last through the final demo recording. Spend as little as possible.

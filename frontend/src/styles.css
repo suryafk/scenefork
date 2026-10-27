@@ -1,0 +1,151 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: #0b0e11;
+  color: #e6edf3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.bar {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.bar h1 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+}
+
+.sub {
+  color: #8b98a5;
+  font-size: 14px;
+}
+
+.stage {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #222a33;
+}
+
+.canvas-host canvas {
+  cursor: grab;
+}
+
+.canvas-host canvas:active {
+  cursor: grabbing;
+}
+
+.hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.hud-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hud button {
+  pointer-events: auto;
+  font: inherit;
+  font-size: 13px;
+  color: #e6edf3;
+  background: rgba(11, 14, 17, 0.72);
+  border: 1px solid #2d3743;
+  border-radius: 6px;
+  padding: 5px 9px;
+  cursor: pointer;
+}
+
+.hud button[aria-pressed='true'] {
+  border-color: #00ffd0;
+}
+
+kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: #8b98a5;
+  margin-left: 4px;
+}
+
+.hud-stats {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 12px;
+  margin: 0;
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: rgba(11, 14, 17, 0.72);
+  border: 1px solid #00ffd055;
+  border-radius: 6px;
+}
+
+.hud-stats dt {
+  color: #8b98a5;
+}
+
+.hud-stats dd {
+  margin: 0;
+}
+
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: rgba(11, 14, 17, 0.72);
+  border-radius: 6px;
+}
+
+.legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+.error {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  padding: 8px 10px;
+  background: #5c1a1a;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .app {
+    padding: 8px;
+  }
+  .sub {
+    display: none;
+  }
+}
