@@ -40,6 +40,8 @@ class Settings:
     allowed_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
     fork_ttl_s: float = 30 * 60
     grounding_effort: str = "minimal"
+    #: CLAUDE.md: raise only when an eval shows minimal isn't enough.
+    codegen_effort: str = "minimal"
 
 
 def load_settings() -> Settings:
@@ -55,4 +57,5 @@ def load_settings() -> Settings:
         # Stable across restarts when a demo token exists, so signed asset URLs survive a reload.
         asset_secret=(token.encode() + b"|assets") if token else secrets.token_bytes(32),
         allowed_origins=tuple(o.strip() for o in origins.split(",")) if origins else Settings.allowed_origins,
+        codegen_effort=os.environ.get("SCENEFORK_CODEGEN_EFFORT", "minimal"),
     )

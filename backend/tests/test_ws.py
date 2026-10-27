@@ -128,3 +128,28 @@ def test_cancel_before_segmentation_finishes_skips_the_free(settings):
         failed, seen = recv_until(ws, "free_failed")
         assert failed["reason"] == "cancelled"
         assert "freed" not in [m["type"] for m in seen]
+
+
+def test_codegen_round_trip_with_the_fake_mutator(settings):
+    with client(settings).websocket_connect("/ws", headers=ORIGIN) as ws:
+        ws.receive_json()
+        scene = {"bounds_m": {"width": 12.8, "height": 7.2}, "gravity": [0, 9.81],
+                 "entities": [{"id": "truck", "label": "truck", "dynamic": True, "x": 3, "y": 4, "width": 3, "height": 2, "mass_kg": 3500}]}
+        ws.send_json({"type": "codegen", "req_id": "c1", "text": "slingshot the truck", "scene": scene,
+                      "bindings": {"thisId": None, "thatId": None, "named": ["truck"]}, "attempt": 0, "previous": None})
+        msg, _ = recv_until(ws, "codegen_result")
+        assert msg["req_id"] == "c1" and msg["problems"] == []
+        assert contracts.is_valid("plugin", msg["plugin"])
+        assert msg["plugin"]["writes"] == ["entity:truck.velocity"]
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [{"attempt": 3, "previous": {"plugin": {}, "error": "x"}}, {"attempt": 1, "previous": None}, {"text": ""}, {"text": "x" * 301}, {"scene": None}],
+)
+def test_codegen_rejects_bad_requests_without_calling_the_model(settings, patch):
+    with client(settings).websocket_connect("/ws", headers=ORIGIN) as ws:
+        ws.receive_json()
+        ws.send_json({"type": "codegen", "req_id": "c2", "text": "spin", "scene": {"entities": []}, "bindings": {}, "attempt": 0, "previous": None, **patch})
+        msg, _ = recv_until(ws, "codegen_failed")
+        assert msg["reason"] == "bad_request"

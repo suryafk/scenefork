@@ -1,8 +1,23 @@
-// Physics world shared by the live PhysicsWorker and (Phase 3) the verifier worker (eng review D2).
+// Physics world shared by the live PhysicsWorker and the verifier worker (eng review D2).
 // Pure: no Pixi, no DOM. Rapier runs in meters; pixels only cross this boundary through
-// `pixels_per_meter`.
+// `pixels_per_meter`. Owns the rule stack and the plugin `ctx` API (shared/ctx.d.ts).
 import RAPIER from '@dimforge/rapier2d-compat';
 import { boundingBox, compressMasses, polygonArea, polygonCentroid, toConvexParts } from './geometry';
+import {
+  MAX_PLUGINS,
+  RuleStack,
+  isDeclared,
+  parseWrite,
+  writeSetsConflict,
+  type Bindings,
+  type FieldKey,
+  type FieldValue,
+  type PresetWrite,
+  type RuleDef,
+  type RuleEvent,
+  type RuleInfo,
+} from './rules';
+import { compilePlugin, type HookName, type Hooks } from './sandbox';
 import {
   FLAG_FLOOR_ACTIVE,
   FLAG_HELD,
@@ -32,6 +47,10 @@ const OVERLAP_CLEAR_STEPS = 10;
 const MIN_IMPACT_SPEED = 0.8;
 const IMPACT_COOLDOWN_STEPS = 5;
 const GROUND = 'ground';
+/** Design: Misbehaving plugins. A hook over this budget for this many steps in a row is unloaded. */
+const SLOW_HOOK_MS = 4;
+const SLOW_HOOK_STEPS = 3;
+const MAX_LOG_LINES = 50;
 
 /**
  * Fraction of the velocity error the drag corrects per step. The impulse is
@@ -42,6 +61,18 @@ export function dragGain(massKg: number): number {
   return Math.min(0.9, 0.9 * Math.pow(Math.max(massKg, 1e-3), -0.4));
 }
 
+/** Small seeded PRNG (mulberry32): one seed per verification run and its baseline (outside voice #17). */
+export function seededRandom(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 interface BodyRec {
   id: string;
   spec: EntitySpec;
@@ -49,7 +80,7 @@ interface BodyRec {
   colliders: RAPIER.Collider[];
   dynamic: boolean;
   massKg: number;
-  /** Mass before compression; grounding replaces it. */
+  /** Effective mass before compression: the stacked value, else the grounded or default one. */
   rawMassKg: number;
   /** Each part collider's share of the body's area, for splitting mass. */
   areaFractions: number[];
@@ -64,6 +95,7 @@ interface BodyRec {
   /** Distance from the body origin down to its lowest point at spawn, in meters. */
   bottomOffset: number;
   halfHeight: number;
+  widthM: number;
 }
 
 interface Held {
@@ -73,11 +105,63 @@ interface Held {
   target: { x: number; y: number };
 }
 
+interface ActiveRule {
+  def: RuleDef;
+  /** Declared write patterns: replacement and the undeclared-write check both use them. */
+  declared: string[];
+  hooks: Hooks;
+  ticks: number;
+  ageS: number;
+  /** Hook time spent in the current step, and how many steps in a row ran over budget. */
+  stepMs: number;
+  slowSteps: number;
+}
+
+/** Everything a fresh SimCore needs to stand in for this one (watchdog restore, verifier). */
+export interface SimSnapshot {
+  /** Entities carry their base (grounded or default) physics, in body order. */
+  manifest: SceneManifest;
+  bodies: { id: string; x: number; y: number; rot: number; vx: number; vy: number; w: number; floorActive: boolean }[];
+  /** Presets survive a restart; plugins don't (design: Runtime watchdog). */
+  presets: RuleDef[];
+}
+
+export interface EntityView {
+  readonly id: string;
+  readonly label: string;
+  readonly x: number;
+  readonly y: number;
+  readonly vx: number;
+  readonly vy: number;
+  readonly speed: number;
+  readonly angle: number;
+  readonly angularVelocity: number;
+  readonly mass: number;
+  readonly restitution: number;
+  readonly friction: number;
+  readonly dynamic: boolean;
+  readonly held: boolean;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface SimOptions {
+  /** Seed for ctx.random and plugin Math.random. */
+  seed?: number;
+}
+
 const rotate = (v: { x: number; y: number }, a: number) => ({
   x: v.x * Math.cos(a) - v.y * Math.sin(a),
   y: v.x * Math.sin(a) + v.y * Math.cos(a),
 });
 const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+const entityKey = (id: string, field: string): FieldKey => `entity:${id}.${field}`;
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+function finite(v: unknown, what: string): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error(`${what} must be a finite number, got ${String(v)}`);
+  return v;
+}
 
 export class SimCore {
   readonly world: RAPIER.World;
@@ -99,6 +183,18 @@ export class SimCore {
   /** Grounding results waiting for their body to come to rest (design step 5). */
   private readonly pendingPatches = new Map<string, Grounding>();
 
+  private readonly stack = new RuleStack();
+  /** Active rules, oldest first. */
+  private readonly rules: ActiveRule[] = [];
+  private ruleEvents: RuleEvent[] = [];
+  private logs: string[] = [];
+  private timeScale = 1;
+  readonly random: () => number;
+  /** Rule whose hook is running right now; the worker reports it so the watchdog can name a culprit. */
+  running: string | null = null;
+  /** Called as a plugin hook starts (the live worker posts it before a possible freeze). */
+  onHookEnter: ((ruleId: string) => void) | null = null;
+
   private readonly hooks: RAPIER.PhysicsHooks = {
     filterContactPair: (c1, c2) => {
       const f1 = this.floorOwner.get(c1);
@@ -119,13 +215,16 @@ export class SimCore {
   };
 
   /** Call `await initRapier()` first. */
-  constructor(manifest: SceneManifest) {
+  constructor(manifest: SceneManifest, opts: SimOptions = {}) {
     this.manifest = manifest;
     this.ppm = manifest.pixels_per_meter;
+    this.random = seededRandom(opts.seed ?? 0x5ce4e);
     this.world = new RAPIER.World({ x: 0, y: manifest.gravity_mps2 });
     this.world.numSolverIterations = 8;
     this.eventQueue = new RAPIER.EventQueue(true);
     this.ground = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+    this.stack.setBase('world.gravity', [0, manifest.gravity_mps2]);
+    this.stack.setBase('world.time_scale', 1);
     this.buildBounds();
 
     for (const spec of manifest.entities) this.buildEntity(spec);
@@ -134,6 +233,37 @@ export class SimCore {
     this.findSpawnOverlaps();
     this.rebalanceMasses();
     for (const rec of this.recs.values()) if (rec.dynamic) this.buildOwnFloor(rec);
+  }
+
+  /** Rebuild a world from a snapshot: same bodies, poses and presets, no plugins. */
+  static restore(snap: SimSnapshot, opts: SimOptions = {}): SimCore {
+    const sim = new SimCore(snap.manifest, opts);
+    for (const b of snap.bodies) {
+      const rec = sim.recs.get(b.id);
+      if (!rec) continue;
+      rec.body.setTranslation({ x: b.x, y: b.y }, true);
+      rec.body.setRotation(b.rot, true);
+      rec.body.setLinvel({ x: b.vx, y: b.vy }, true);
+      rec.body.setAngvel(b.w, true);
+      rec.floorActive = rec.floorActive && b.floorActive;
+    }
+    sim.world.propagateModifiedBodyPositionsToColliders();
+    for (const p of snap.presets) sim.loadRule(p);
+    sim.ruleEvents = [];
+    return sim;
+  }
+
+  snapshot(): SimSnapshot {
+    return {
+      manifest: { ...this.manifest, entities: this.ids.map((id) => this.recs.get(id)!.spec) },
+      bodies: this.ids.map((id) => {
+        const rec = this.recs.get(id)!;
+        const t = rec.body.translation();
+        const v = rec.body.linvel();
+        return { id, x: t.x, y: t.y, rot: rec.body.rotation(), vx: v.x, vy: v.y, w: rec.body.angvel(), floorActive: rec.floorActive };
+      }),
+      presets: this.rules.filter((r) => r.def.kind === 'preset').map((r) => r.def),
+    };
   }
 
   /** Free one more object into the running world (click-to-free). */
@@ -150,6 +280,11 @@ export class SimCore {
       this.rebalanceMasses();
       this.buildOwnFloor(rec);
     }
+    // Scene-wide presets ("make everything bouncy") cover objects freed after them too.
+    for (const rule of this.rules) {
+      if (rule.def.kind !== 'preset' || rule.def.targets !== null || !rec.dynamic) continue;
+      for (const w of rule.def.writes) if (w.field.startsWith('entity:*.')) this.write(rule, entityKey(rec.id, w.field.slice(9)), w.value);
+    }
     return this.geometryOf(rec);
   }
 
@@ -164,6 +299,8 @@ export class SimCore {
     const masses = compressMasses(dyn.map((r) => r.rawMassKg));
     dyn.forEach((rec, i) => {
       rec.colliders.forEach((c, j) => c.setMass(masses[i] * rec.areaFractions[j]));
+      // Rapier would only pick this up at the next step; impulses before it (onInit) need it now.
+      rec.body.recomputeMassPropertiesFromColliders();
       rec.massKg = masses[i];
     });
   }
@@ -175,24 +312,23 @@ export class SimCore {
       const v = rec.body.linvel();
       if (Math.hypot(v.x, v.y) > 0.3 || Math.abs(rec.body.angvel()) > 0.5) continue;
       this.pendingPatches.delete(id);
-      rec.spec = { ...rec.spec, label: g.label, acoustic_material: g.acoustic_material };
+      // Grounding sets the base values; a rule that overrides a field keeps winning.
+      const fixedNow = rec.dynamic && g.body_type === 'fixed';
+      rec.spec = {
+        ...rec.spec,
+        label: g.label,
+        acoustic_material: g.acoustic_material,
+        body_type: rec.spec.body_type === 'fixed' ? 'fixed' : g.body_type,
+        physics: { mass_kg: g.mass_kg, restitution: g.restitution, friction: g.friction },
+      };
       rec.material = g.acoustic_material;
-      for (const c of rec.colliders) {
-        c.setRestitution(g.restitution);
-        c.setFriction(g.friction);
-      }
-      if (!rec.dynamic) continue;
-      if (g.body_type === 'fixed') {
-        // A wall or pole the user freed by mistake stops moving, at rest where it is.
-        rec.body.setBodyType(RAPIER.RigidBodyType.Fixed, false);
-        rec.dynamic = false;
-        rec.floorActive = false;
-        rec.massKg = 0;
-        this.rebalanceMasses();
-      } else {
-        rec.rawMassKg = g.mass_kg;
-        this.rebalanceMasses();
-      }
+      this.stack.setBase(entityKey(id, 'restitution'), g.restitution);
+      this.stack.setBase(entityKey(id, 'friction'), g.friction);
+      this.stack.setBase(entityKey(id, 'mass'), g.mass_kg);
+      this.stack.setBase(entityKey(id, 'body_type'), rec.spec.body_type);
+      // A wall or pole the user freed by mistake stops moving, at rest where it is.
+      if (fixedNow) rec.floorActive = false;
+      for (const f of ['restitution', 'friction', 'mass', 'body_type']) this.applyField(entityKey(id, f));
     }
   }
 
@@ -253,7 +389,7 @@ export class SimCore {
       colliders,
       dynamic,
       massKg: 0,
-      rawMassKg: dynamic ? spec.physics.mass_kg : 0,
+      rawMassKg: spec.physics.mass_kg,
       areaFractions,
       material: spec.acoustic_material,
       centroidPx: centroid,
@@ -265,9 +401,15 @@ export class SimCore {
       floorX2: (centroid[0] + 0.75 * bb.w) / ppm,
       bottomOffset: (maxY - centroid[1]) / ppm,
       halfHeight: bb.h / 2 / ppm,
+      widthM: bb.w / ppm,
     };
     this.recs.set(spec.id, rec);
     this.ids.push(spec.id);
+    this.stack.setBase(entityKey(spec.id, 'mass'), spec.physics.mass_kg);
+    this.stack.setBase(entityKey(spec.id, 'restitution'), spec.physics.restitution);
+    this.stack.setBase(entityKey(spec.id, 'friction'), spec.physics.friction);
+    this.stack.setBase(entityKey(spec.id, 'damping'), 0);
+    this.stack.setBase(entityKey(spec.id, 'body_type'), spec.body_type);
     return rec;
   }
 
@@ -344,10 +486,24 @@ export class SimCore {
     }
     if (!rec) return null;
     const t = rec.body.translation();
-    this.held = { rec, local: rotate({ x: p.x - t.x, y: p.y - t.y }, -rec.body.rotation()), target: p };
+    this.startHold(rec, rotate({ x: p.x - t.x, y: p.y - t.y }, -rec.body.rotation()), p);
+    return rec.id;
+  }
+
+  /** Grab an entity at its origin (verifier dragRelease scenarios). */
+  grabById(id: string): boolean {
+    const rec = this.recs.get(id);
+    if (!rec?.dynamic) return false;
+    const t = rec.body.translation();
+    this.startHold(rec, { x: 0, y: 0 }, { x: t.x, y: t.y });
+    return true;
+  }
+
+  private startHold(rec: BodyRec, local: { x: number; y: number }, target: { x: number; y: number }): void {
+    this.held = { rec, local, target };
     rec.body.setAngularDamping(HELD_ANGULAR_DAMPING);
     rec.body.wakeUp();
-    return rec.id;
+    this.dispatch('onGrab', rec.id);
   }
 
   drag(xPx: number, yPx: number): void {
@@ -356,12 +512,14 @@ export class SimCore {
 
   release(): void {
     if (!this.held) return;
-    const body = this.held.rec.body;
+    const { rec } = this.held;
+    const body = rec.body;
     body.setAngularDamping(0);
     const v = body.linvel();
     const speed = Math.hypot(v.x, v.y);
     if (speed > MAX_THROW_SPEED) body.setLinvel({ x: (v.x / speed) * MAX_THROW_SPEED, y: (v.y / speed) * MAX_THROW_SPEED }, true);
     this.held = null;
+    this.dispatch('onRelease', rec.id);
   }
 
   get heldId(): string | null {
@@ -414,6 +572,13 @@ export class SimCore {
   step(): CollisionEvent[] {
     this.applyPendingPatches();
     this.applyDrag();
+    const dt = DT * this.timeScale;
+    for (const rule of this.rules) {
+      rule.stepMs = 0;
+      rule.ticks++;
+      rule.ageS += dt;
+    }
+    this.dispatch('onStep', dt);
     // Impact speed must be measured before the solver resolves the contact.
     for (const rec of this.recs.values()) {
       if (!rec.dynamic) continue;
@@ -450,8 +615,314 @@ export class SimCore {
         mass_a: ra.massKg,
       });
     });
+    for (const e of events) this.dispatch('onCollision', Object.freeze({ a: e.a, b: e.b, speed: e.speed_mps }));
+    for (const rule of [...this.rules]) {
+      rule.slowSteps = rule.stepMs > SLOW_HOOK_MS ? rule.slowSteps + 1 : 0;
+      if (rule.slowSteps >= SLOW_HOOK_STEPS) this.failRule(rule, `its hooks took over ${SLOW_HOOK_MS} ms per step for ${SLOW_HOOK_STEPS} steps`);
+    }
     return events;
   }
+
+  // ------------------------------------------------------------ rules (design: Rule semantics)
+
+  /**
+   * Load a preset or plugin. Rules whose declared writes overlap it are unloaded first; a 4th
+   * plugin evicts the oldest. Returns whether the rule is active afterwards (a plugin that fails
+   * to compile or throws in onInit is not). Details arrive through takeRuleEvents().
+   */
+  loadRule(def: RuleDef): boolean {
+    const declared = def.kind === 'preset' ? this.presetDeclared(def) : [...def.writes];
+    for (const r of [...this.rules]) {
+      if (r.def.id === def.id) {
+        this.dropRule(r); // the same preset again: reload it quietly
+      } else if (writeSetsConflict(declared, r.declared)) {
+        this.dropRule(r);
+        this.ruleEvents.push({ kind: 'replaced', rule: r.def.id, name: r.def.name, detail: def.name });
+      }
+    }
+    if (def.kind === 'plugin') {
+      const plugins = this.rules.filter((r) => r.def.kind === 'plugin');
+      if (plugins.length >= MAX_PLUGINS) {
+        this.dropRule(plugins[0]);
+        this.ruleEvents.push({ kind: 'evicted', rule: plugins[0].def.id, name: plugins[0].def.name, detail: def.name });
+      }
+    }
+    const rule: ActiveRule = { def, declared, hooks: {}, ticks: 0, ageS: 0, stepMs: 0, slowSteps: 0 };
+    this.rules.push(rule);
+    if (def.kind === 'preset') {
+      for (const [key, value] of this.presetWrites(def)) this.write(rule, key, value);
+      this.ruleEvents.push({ kind: 'loaded', rule: def.id, name: def.name, detail: '' });
+      return true;
+    }
+    try {
+      rule.hooks = compilePlugin(def.source, this.makeCtx(rule), this.random);
+    } catch (e) {
+      this.failRule(rule, (e as Error).message);
+      return false;
+    }
+    this.ruleEvents.push({ kind: 'loaded', rule: def.id, name: def.name, detail: '' });
+    this.runHook(rule, 'onInit', []);
+    return this.rules.includes(rule);
+  }
+
+  unloadRule(id: string, reason = 'removed'): void {
+    const rule = this.rules.find((r) => r.def.id === id);
+    if (!rule) return;
+    this.dropRule(rule);
+    this.ruleEvents.push({ kind: 'unloaded', rule: id, name: rule.def.name, detail: reason });
+  }
+
+  /** "reset": unload every rule; fields fall back to grounded physics. */
+  resetRules(): void {
+    for (const r of [...this.rules]) this.unloadRule(r.def.id, 'reset');
+  }
+
+  ruleInfos(): RuleInfo[] {
+    return this.rules.map((r) => ({ id: r.def.id, kind: r.def.kind, name: r.def.name, writes: r.declared }));
+  }
+
+  hasRule(id: string): boolean {
+    return this.rules.some((r) => r.def.id === id);
+  }
+
+  takeRuleEvents(): RuleEvent[] {
+    const out = this.ruleEvents;
+    this.ruleEvents = [];
+    return out;
+  }
+
+  takeLogs(): string[] {
+    const out = this.logs;
+    this.logs = [];
+    return out;
+  }
+
+  /** Effective value of a stackable field (rule entry, else base). */
+  fieldValue(key: FieldKey): FieldValue | undefined {
+    return this.stack.effective(key);
+  }
+
+  private presetTargets(def: Extract<RuleDef, { kind: 'preset' }>): string[] {
+    return def.targets ?? this.ids.filter((id) => this.recs.get(id)!.dynamic);
+  }
+
+  private presetDeclared(def: Extract<RuleDef, { kind: 'preset' }>): string[] {
+    return def.writes.flatMap((w) =>
+      w.field.startsWith('entity:*.') && def.targets ? def.targets.map((id) => entityKey(id, w.field.slice(9))) : [w.field],
+    );
+  }
+
+  private presetWrites(def: Extract<RuleDef, { kind: 'preset' }>): [FieldKey, FieldValue][] {
+    return def.writes.flatMap((w: PresetWrite): [FieldKey, FieldValue][] =>
+      w.field.startsWith('entity:*.') ? this.presetTargets(def).map((id) => [entityKey(id, w.field.slice(9)), w.value]) : [[w.field, w.value]],
+    );
+  }
+
+  private dropRule(rule: ActiveRule): void {
+    const i = this.rules.indexOf(rule);
+    if (i < 0) return;
+    this.rules.splice(i, 1);
+    for (const key of this.stack.pop(rule.def.id)) this.applyField(key);
+  }
+
+  private failRule(rule: ActiveRule, reason: string): void {
+    this.dropRule(rule);
+    this.ruleEvents.push({ kind: 'failed', rule: rule.def.id, name: rule.def.name, detail: reason });
+  }
+
+  /** Run one hook of every plugin (oldest first) under the per-hook guard. */
+  private dispatch(name: HookName, ...args: unknown[]): void {
+    for (const rule of [...this.rules]) if (rule.hooks[name]) this.runHook(rule, name, args);
+  }
+
+  private runHook(rule: ActiveRule, name: HookName, args: unknown[]): void {
+    const fn = rule.hooks[name];
+    if (!fn || !this.rules.includes(rule)) return;
+    this.running = rule.def.id;
+    this.onHookEnter?.(rule.def.id);
+    const t0 = performance.now();
+    try {
+      fn.apply(undefined, args);
+    } catch (e) {
+      this.running = null;
+      this.failRule(rule, `${name} threw: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+    this.running = null;
+    rule.stepMs += performance.now() - t0;
+  }
+
+  /** The only way a rule changes a stackable field. */
+  private write(rule: ActiveRule, key: FieldKey, value: FieldValue): void {
+    if (!isDeclared(rule.declared, key)) throw new Error(`wrote ${key} without declaring it in writes`);
+    this.stack.push(rule.def.id, key, value);
+    this.applyField(key);
+  }
+
+  /** Push a field's effective value into Rapier. */
+  private applyField(key: FieldKey): void {
+    const v = this.stack.effective(key);
+    if (v === undefined) return;
+    if (key === 'world.gravity') {
+      const [x, y] = v as [number, number];
+      this.world.gravity = { x, y };
+      for (const rec of this.recs.values()) if (rec.dynamic) rec.body.wakeUp();
+      return;
+    }
+    if (key === 'world.time_scale') {
+      this.timeScale = v as number;
+      this.world.timestep = DT * this.timeScale;
+      return;
+    }
+    const p = parseWrite(key);
+    const rec = p && this.recs.get(p.id);
+    if (!p || !rec) return;
+    switch (p.field) {
+      case 'mass':
+        rec.rawMassKg = v as number;
+        if (rec.dynamic) this.rebalanceMasses();
+        break;
+      case 'restitution':
+        for (const c of rec.colliders) c.setRestitution(v as number);
+        break;
+      case 'friction':
+        for (const c of rec.colliders) c.setFriction(v as number);
+        break;
+      case 'damping':
+        rec.body.setLinearDamping(v as number);
+        break;
+      case 'body_type':
+        this.setDynamic(rec, v === 'dynamic');
+        break;
+    }
+    rec.body.wakeUp();
+  }
+
+  private setDynamic(rec: BodyRec, dynamic: boolean): void {
+    if (rec.dynamic === dynamic) return;
+    if (!dynamic && this.held?.rec === rec) this.held = null;
+    rec.body.setBodyType(dynamic ? RAPIER.RigidBodyType.Dynamic : RAPIER.RigidBodyType.Fixed, true);
+    rec.dynamic = dynamic;
+    if (!dynamic) rec.massKg = 0;
+    this.rebalanceMasses();
+  }
+
+  entityView(id: string): EntityView | null {
+    const rec = this.recs.get(id);
+    if (!rec) return null;
+    const t = rec.body.translation();
+    const v = rec.body.linvel();
+    return Object.freeze({
+      id,
+      label: rec.spec.label,
+      x: t.x,
+      y: t.y,
+      vx: v.x,
+      vy: v.y,
+      speed: Math.hypot(v.x, v.y),
+      angle: rec.body.rotation(),
+      angularVelocity: rec.body.angvel(),
+      mass: this.stack.effective(entityKey(id, 'mass')) as number,
+      restitution: this.stack.effective(entityKey(id, 'restitution')) as number,
+      friction: this.stack.effective(entityKey(id, 'friction')) as number,
+      dynamic: rec.dynamic,
+      held: this.held?.rec === rec,
+      width: rec.widthM,
+      height: rec.halfHeight * 2,
+    });
+  }
+
+  /** Teleport a body (verifier collision scenarios). Meters and m/s. */
+  setPose(id: string, x: number, y: number, vx: number, vy: number): void {
+    const rec = this.recs.get(id);
+    if (!rec) return;
+    rec.body.setTranslation({ x, y }, true);
+    rec.body.setLinvel({ x: vx, y: vy }, true);
+    rec.body.setAngvel(0, true);
+    this.world.propagateModifiedBodyPositionsToColliders();
+  }
+
+  get gravity(): { x: number; y: number } {
+    const g = this.world.gravity;
+    return { x: g.x, y: g.y };
+  }
+
+  get currentTimeScale(): number {
+    return this.timeScale;
+  }
+
+  get bounds(): { width: number; height: number } {
+    return { width: this.manifest.resolution.width / this.ppm, height: this.manifest.resolution.height / this.ppm };
+  }
+
+  /** The plugin API (shared/ctx.d.ts), bound to one rule so every write is attributed to it. */
+  private makeCtx(rule: ActiveRule): object {
+    const bindings = (rule.def as { bindings?: Bindings }).bindings ?? { thisId: null, thatId: null, named: [] };
+    const entity = (id: unknown): BodyRec => {
+      const rec = this.recs.get(String(id));
+      if (!rec) throw new Error(`no entity "${String(id)}" (ids: ${this.ids.join(', ')})`);
+      return rec;
+    };
+    const set = (id: unknown, field: string, value: FieldValue) => this.write(rule, entityKey(entity(id).id, field), value);
+    const moving = (id: unknown): BodyRec | null => {
+      const rec = entity(id);
+      const key = entityKey(rec.id, 'velocity');
+      if (!isDeclared(rule.declared, key)) throw new Error(`moved ${rec.id} without declaring ${key} in writes`);
+      return rec.dynamic ? rec : null;
+    };
+    const bounds = Object.freeze(this.bounds);
+    const api = {
+      entities: () => [...this.ids],
+      entity: (id: unknown) => this.entityView(String(id)),
+      find: (word: unknown) => {
+        const w = String(word).toLowerCase();
+        return this.ids.filter((id) => this.recs.get(id)!.spec.label.toLowerCase().includes(w) || id.includes(w));
+      },
+      bindings: Object.freeze({ thisId: bindings.thisId, thatId: bindings.thatId, named: Object.freeze([...bindings.named]) }),
+      time: () => rule.ageS,
+      tick: () => rule.ticks,
+      random: this.random,
+      bounds,
+      setGravity: (x: unknown, y: unknown) => this.write(rule, 'world.gravity', [finite(x, 'gravity x'), finite(y, 'gravity y')]),
+      gravity: () => Object.freeze(this.gravity),
+      setTimeScale: (s: unknown) => this.write(rule, 'world.time_scale', clamp(finite(s, 'time scale'), 0.05, 4)),
+      setMass: (id: unknown, kg: unknown) => set(id, 'mass', clamp(finite(kg, 'mass'), 0.001, 100000)),
+      setRestitution: (id: unknown, r: unknown) => set(id, 'restitution', clamp(finite(r, 'restitution'), 0, 1.2)),
+      setFriction: (id: unknown, f: unknown) => set(id, 'friction', clamp(finite(f, 'friction'), 0, 2)),
+      setDamping: (id: unknown, d: unknown) => set(id, 'damping', clamp(finite(d, 'damping'), 0, 50)),
+      setBodyType: (id: unknown, type: unknown) => {
+        if (type !== 'dynamic' && type !== 'fixed') throw new Error(`body type must be "dynamic" or "fixed", got ${String(type)}`);
+        set(id, 'body_type', type);
+      },
+      applyImpulse: (id: unknown, ix: unknown, iy: unknown) => {
+        const rec = moving(id);
+        const imp = { x: finite(ix, 'impulse x'), y: finite(iy, 'impulse y') };
+        if (!rec) return;
+        // Plugins think in real kg (ctx.entity().mass); the body carries the compressed mass
+        // (OV7). Scale so that impulse = mass * dv changes the speed by exactly dv.
+        const s = rec.rawMassKg > 0 ? rec.massKg / rec.rawMassKg : 1;
+        rec.body.applyImpulse({ x: imp.x * s, y: imp.y * s }, true);
+      },
+      setVelocity: (id: unknown, vx: unknown, vy: unknown) => {
+        const rec = moving(id);
+        const v = { x: finite(vx, 'velocity x'), y: finite(vy, 'velocity y') };
+        rec?.body.setLinvel(v, true);
+      },
+      setAngularVelocity: (id: unknown, w: unknown) => {
+        const rec = moving(id);
+        const av = finite(w, 'angular velocity');
+        rec?.body.setAngvel(av, true);
+      },
+      freeze: <T>(value: T): T => Object.freeze(value),
+      log: (...parts: unknown[]) => {
+        this.logs.push(`${rule.def.name}: ${parts.map((p) => (typeof p === 'string' ? p : JSON.stringify(p))).join(' ')}`);
+        if (this.logs.length > MAX_LOG_LINES) this.logs.shift();
+      },
+    };
+    return Object.freeze(Object.assign(Object.create(null), api));
+  }
+
+  // ------------------------------------------------------------ output
 
   /** Fill `out` (length ids.length * STRIDE) with pixel-space poses and velocities. */
   writeFrame(out: Float32Array): void {

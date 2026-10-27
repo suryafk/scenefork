@@ -1,0 +1,69 @@
+{
+  "description": "Voice presets (design: Intent routing). Matched locally on interim transcripts in under 5 ms; no model call. A pattern hit is confidence 1. Keywords (0.6 for one hit, 0.8 for two, 1 for three) give the closest preset for the codegen failure rule (applied when confidence >= 0.6). Entity fields use `entity:*`: the pointed-at or named entity when the command has one, else every dynamic body.",
+  "presets": [
+    {
+      "id": "zero_gravity",
+      "name": "Zero gravity",
+      "patterns": ["\\b(zero|no) gravity\\b", "\\bweightless\\b", "\\bturn off gravity\\b"],
+      "keywords": ["zero", "weightless", "float", "space"],
+      "writes": [{ "field": "world.gravity", "value": [0, 0] }]
+    },
+    {
+      "id": "moon_gravity",
+      "name": "Moon gravity",
+      "patterns": ["\\bmoon\\b", "\\blunar\\b"],
+      "keywords": ["moon", "lunar"],
+      "writes": [{ "field": "world.gravity", "value": [0, 1.62] }]
+    },
+    {
+      "id": "super_gravity",
+      "name": "Super gravity",
+      "patterns": ["\\b(super|heavy|double|triple|strong) gravity\\b", "\\bjupiter\\b"],
+      "keywords": ["jupiter", "crush", "stronger"],
+      "writes": [{ "field": "world.gravity", "value": [0, 24.8] }]
+    },
+    {
+      "id": "reverse_gravity",
+      "name": "Reverse gravity",
+      "patterns": ["\\b(reverse|flip|invert)(ed)? (the )?gravity\\b", "\\bgravity (goes )?up\\b", "\\bupside down\\b"],
+      "keywords": ["reverse", "flip", "invert", "upside", "ceiling"],
+      "writes": [{ "field": "world.gravity", "value": [0, -9.81] }]
+    },
+    {
+      "id": "bouncy",
+      "name": "Bouncy",
+      "patterns": ["\\bbouncy\\b", "\\bbounc(e|ing)\\b", "\\btrampoline\\b", "\\bsuper ?ball\\b"],
+      "keywords": ["bouncy", "bounce", "rubber", "trampoline", "spring"],
+      "writes": [{ "field": "entity:*.restitution", "value": 0.95 }]
+    },
+    {
+      "id": "slippery",
+      "name": "Slippery",
+      "patterns": ["\\b(icy|slippery|frictionless)\\b", "\\bno friction\\b", "\\bon ice\\b"],
+      "keywords": ["ice", "icy", "slippery", "slide", "frictionless", "skate"],
+      "writes": [{ "field": "entity:*.friction", "value": 0.02 }]
+    },
+    {
+      "id": "slow_motion",
+      "name": "Slow motion",
+      "patterns": ["\\bslow[ -]?(motion|mo)\\b", "\\bslow (down )?time\\b", "\\bbullet time\\b"],
+      "keywords": ["slow", "matrix", "bullet"],
+      "writes": [{ "field": "world.time_scale", "value": 0.3 }]
+    },
+    {
+      "id": "fast_forward",
+      "name": "Fast forward",
+      "patterns": ["\\bfast[ -]?forward\\b", "\\bspeed up time\\b", "\\bdouble speed\\b"],
+      "keywords": ["fast", "quick", "hurry"],
+      "writes": [{ "field": "world.time_scale", "value": 2 }]
+    },
+    {
+      "id": "reset",
+      "name": "Reset",
+      "patterns": ["^\\s*reset\\b", "\\bback to normal\\b", "\\bundo (all|everything)\\b", "\\bnormal physics\\b"],
+      "keywords": ["reset", "normal", "undo"],
+      "action": "reset",
+      "writes": []
+    }
+  ]
+}

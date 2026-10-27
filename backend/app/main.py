@@ -6,6 +6,9 @@ client → server
   {"type": "fork", "req_id", "clip_hash", "t_fork"}  + binary JPEG (≤ 1.5 MB)
   {"type": "free", "req_id", "fork_id", "x", "y"}     click in frame pixels
   {"type": "cancel", "req_id"}                         drop a free whose result isn't back yet
+  {"type": "codegen", "req_id", "text", "scene", "bindings", "attempt", "previous"}
+                                                       one MutatorAgent call; the browser verifies and
+                                                       asks again (attempt 1-2) with the error
 server → client
   {"type": "hello", "live"}                                  on connect
   {"type": "forked", "req_id", "fork_id", "width", "height"}
@@ -13,6 +16,9 @@ server → client
   {"type": "free_failed", "req_id", "fork_id", "reason", "message"}  reason: no_object | spend_cap | error
   {"type": "grounded", "fork_id", "entity_id", "grounding"}  grounding: shared/grounding.schema.json
   {"type": "plate", "fork_id", "entity_id", "version", "url", "method"}
+  {"type": "codegen_result", "req_id", "attempt", "plugin", "problems", "ms", "cached"}
+                                                             plugin: shared/plugin.schema.json
+  {"type": "codegen_failed", "req_id", "reason", "message"}  reason: spend_cap | error | bad_request
   {"type": "spend", "total_usd", "cap_usd"}
   {"type": "error", "code", "req_id", "fork_id"?}           code: unknown_fork | bad_request | bad_frame | frame_too_large
 """
@@ -32,6 +38,7 @@ from . import contracts, vision
 from .adapters import Adapters, build_adapters
 from .config import Settings, load_settings
 from .devcache import DevCache
+from .mutator import MAX_ATTEMPT, MAX_COMMAND_CHARS, CodegenRequest
 from .session import AssetSigner, Fork, SessionStore
 from .spend import SpendCapExceeded, SpendLedger
 
@@ -135,6 +142,8 @@ class Session:
                     await self.on_fork(msg, frame_bytes)
                 elif kind == "free":
                     self.spawn(self.on_free(msg))
+                elif kind == "codegen":
+                    self.spawn(self.on_codegen(msg))
                 elif kind == "cancel":
                     self.cancelled.add(str(msg.get("req_id")))
                 else:
@@ -231,6 +240,48 @@ class Session:
         frame_for_grounding = fork.plate.copy()
         self.spawn(self.ground(fork, entity_id, frame_for_grounding, obj))
         self.spawn(self.inpaint(fork, entity_id, obj))
+
+    async def on_codegen(self, msg: dict) -> None:
+        req_id = msg.get("req_id")
+
+        def failed(reason: str, message: str) -> dict:
+            return {"type": "codegen_failed", "req_id": req_id, "reason": reason, "message": message}
+
+        text = msg.get("text")
+        attempt = msg.get("attempt", 0)
+        scene = msg.get("scene")
+        previous = msg.get("previous")
+        if not isinstance(text, str) or not text.strip() or len(text) > MAX_COMMAND_CHARS or not isinstance(scene, dict):
+            await self.send(failed("bad_request", "codegen needs text (at most 300 characters) and a scene"))
+            return
+        # The repair cap is enforced here too, so a buggy client can't loop on paid calls.
+        if not isinstance(attempt, int) or not 0 <= attempt <= MAX_ATTEMPT or (attempt > 0 and not isinstance(previous, dict)):
+            await self.send(failed("bad_request", f"attempt must be 0-{MAX_ATTEMPT}, and repairs need the previous plugin"))
+            return
+        req = CodegenRequest(text.strip(), scene, msg.get("bindings") or {}, attempt, previous if attempt else None)
+        t0 = time.perf_counter()
+        try:
+            result = await self.b.adapters.mutator.generate(req)
+        except SpendCapExceeded as e:
+            await self.send(failed("spend_cap", str(e)))
+            await self.send_spend()
+            return
+        except Exception as e:
+            log.exception("codegen failed")
+            await self.send(failed("error", f"the model call failed ({type(e).__name__})"))
+            return
+        await self.send(
+            {
+                "type": "codegen_result",
+                "req_id": req_id,
+                "attempt": attempt,
+                "plugin": result.plugin,
+                "problems": result.problems,
+                "ms": round((time.perf_counter() - t0) * 1000),
+                "cached": result.cached,
+            }
+        )
+        await self.send_spend()
 
     async def ground(self, fork: Fork, entity_id: str, frame, obj: vision.CompiledObject) -> None:
         try:

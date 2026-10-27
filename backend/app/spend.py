@@ -18,6 +18,8 @@ SPARK_OUT_PER_TOKEN = 4.25 / 1_000_000
 VOICE_PER_SECOND = 0.18 / 3600
 #: Pre-call reservation for a Spark call whose token count isn't known yet.
 SPARK_RESERVE = 0.01
+#: Codegen prompts embed shared/ctx.d.ts and return a whole plugin: reserve more.
+CODEGEN_RESERVE = 0.03
 
 
 class SpendCapExceeded(RuntimeError):

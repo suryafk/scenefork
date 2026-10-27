@@ -1,0 +1,86 @@
+[
+  {
+    "feasible": true,
+    "reason": "",
+    "name": "slingshot_truck",
+    "summary": "Pull the truck back and let go: it launches the other way.",
+    "writes": [
+      "entity:truck.velocity"
+    ],
+    "source": "let start = null;\nconst target = 'truck';\nreturn {\n  onGrab(id) {\n    if (id !== target) return;\n    const e = ctx.entity(id);\n    start = { x: e.x, y: e.y };\n  },\n  onRelease(id) {\n    if (id !== target || start == null) return;\n    const e = ctx.entity(id);\n    const k = 12 * e.mass;\n    ctx.applyImpulse(id, (start.x - e.x) * k, (start.y - e.y) * k);\n    start = null;\n  },\n};",
+    "assertions": [
+      {
+        "scenario": {
+          "kind": "dragRelease",
+          "entity": "truck",
+          "other": "",
+          "drag_x_m": -1,
+          "drag_y_m": 0,
+          "n": 0,
+          "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "field": "vx",
+        "cmp": "gt",
+        "value": 3,
+        "value_max": 0,
+        "at_tick": 3
+      }
+    ]
+  },
+  {
+    "feasible": true,
+    "reason": "",
+    "name": "sideways_gravity",
+    "summary": "Gravity pulls to the right.",
+    "writes": [
+      "world.gravity"
+    ],
+    "source": "return { onInit() { ctx.setGravity(9.81, 0); } };",
+    "assertions": [
+      {
+        "scenario": {
+          "kind": "init",
+          "entity": "",
+          "other": "",
+          "drag_x_m": 0,
+          "drag_y_m": 0,
+          "n": 0,
+          "rel_speed_mps": 0
+        },
+        "target": "world",
+        "field": "gravity_x",
+        "cmp": "gt",
+        "value": 5,
+        "value_max": 0,
+        "at_tick": 0
+      },
+      {
+        "scenario": {
+          "kind": "ticks",
+          "entity": "",
+          "other": "",
+          "drag_x_m": 0,
+          "drag_y_m": 0,
+          "n": 30,
+          "rel_speed_mps": 0
+        },
+        "target": "entity:ball",
+        "field": "x",
+        "cmp": "changed_by_gt",
+        "value": 0.3,
+        "value_max": 0,
+        "at_tick": 30
+      }
+    ]
+  },
+  {
+    "feasible": false,
+    "reason": "SceneFork can't change the video's colors.",
+    "name": "",
+    "summary": "",
+    "writes": [],
+    "source": "",
+    "assertions": []
+  }
+]

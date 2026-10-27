@@ -15,6 +15,7 @@ import numpy as np
 from . import contracts, vision
 from .devcache import DevCache, request_key
 from .metaapi import MetaModelAPI, data_url
+from .mutator import FakeMutator, LiveMutator, Mutator
 from .spend import IMAGE_PER_EDIT, SAM_PER_IMAGE, SPARK_RESERVE, SpendLedger, spark_cost
 
 
@@ -42,6 +43,7 @@ class Adapters:
     grounder: Grounder
     inpainter: Inpainter
     live: bool
+    mutator: Mutator
 
 
 # ---------------------------------------------------------------- fakes (free)
@@ -187,11 +189,12 @@ class LiveInpainter:
 
 def build_adapters(settings, ledger: SpendLedger, cache: DevCache) -> Adapters:
     if settings.adapters != "live":
-        return Adapters(FakeSegmenter(), FakeGrounder(), FakeInpainter(), live=False)
+        return Adapters(FakeSegmenter(), FakeGrounder(), FakeInpainter(), live=False, mutator=FakeMutator())
     api = MetaModelAPI(settings.model_api_key, settings.model_api_base)
     return Adapters(
         LiveSegmenter(api, ledger, cache),
         LiveGrounder(api, ledger, cache, settings.grounding_effort),
         LiveInpainter(api, ledger, cache),
         live=True,
+        mutator=LiveMutator(api, ledger, cache, settings.codegen_effort),
     )

@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@dimforge/rapier2d-compat": "0.21.0",
+    "acorn": "8.15.0",
+    "acorn-walk": "8.3.4",
     "pixi.js": "8.22.0",
     "poly-decomp-es": "0.4.2",
     "react": "19.3.1",

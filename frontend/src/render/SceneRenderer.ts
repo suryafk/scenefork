@@ -2,7 +2,7 @@
 // click-to-free feedback (rings, blurred holes) and the X-Ray overlay. It renders whatever
 // the latest worker frame says; it never simulates.
 import { Application, Container, Graphics, Sprite, Texture } from 'pixi.js';
-import { boundingBox, spriteAnchor } from '../sim/geometry';
+import { boundingBox, pointInPolygon, spriteAnchor } from '../sim/geometry';
 import { FLAG_FLOOR_ACTIVE, FLAG_HELD, STRIDE, type EntityGeometry, type Point, type SceneManifest } from '../sim/types';
 import { paintSprite } from '../scene/syntheticScene';
 
@@ -140,6 +140,25 @@ export class SceneRenderer {
 
   pushFrame(buf: Float32Array): void {
     this.frame = buf;
+  }
+
+  /** Topmost entity whose hull contains a frame-pixel point, at its current pose (deictic "this"). */
+  entityAt(x: number, y: number): string | null {
+    const f = this.frame;
+    if (!f) return null;
+    let best: { id: string; z: number } | null = null;
+    const n = Math.min(this.geometry.length, f.length / STRIDE);
+    for (let i = 0; i < n; i++) {
+      const o = i * STRIDE;
+      const dx = x - f[o];
+      const dy = y - f[o + 1];
+      const c = Math.cos(-f[o + 2]);
+      const s = Math.sin(-f[o + 2]);
+      const local: [number, number] = [dx * c - dy * s, dx * s + dy * c];
+      const z = this.sprites[i].zIndex;
+      if ((!best || z > best.z) && this.geometry[i].parts_local_px.some((part) => pointInPolygon(local, part))) best = { id: this.geometry[i].id, z };
+    }
+    return best?.id ?? null;
   }
 
   setPreparing(on: boolean): void {

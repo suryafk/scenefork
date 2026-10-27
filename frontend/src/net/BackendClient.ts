@@ -1,5 +1,7 @@
 // WebSocket client for the SceneFork backend (protocol: backend/app/main.py docstring).
+import type { PluginDoc } from '../sim/rules';
 import type { Grounding, Point } from '../sim/types';
+import type { CodegenRequest } from '../voice/RuleController';
 
 export interface FreedEntity {
   id: string;
@@ -18,6 +20,8 @@ export type ServerMsg =
   | { type: 'free_failed'; req_id: string; fork_id: string; reason: 'no_object' | 'spend_cap' | 'error' | 'cancelled'; message: string }
   | { type: 'grounded'; fork_id: string; entity_id: string; grounding: Grounding }
   | { type: 'plate'; fork_id: string; entity_id: string; version: number; url: string; method: string }
+  | { type: 'codegen_result'; req_id: string; attempt: number; plugin: PluginDoc; problems: string[]; ms: number; cached: boolean }
+  | { type: 'codegen_failed'; req_id: string; reason: 'spend_cap' | 'error' | 'bad_request'; message: string }
   | { type: 'spend'; total_usd: number; cap_usd: number }
   | { type: 'error'; code: string; req_id?: string; fork_id?: string };
 
@@ -94,6 +98,13 @@ export class BackendClient {
   free(reqId: string, forkId: string, x: number, y: number): boolean {
     if (!this.open) return false;
     this.ws!.send(JSON.stringify({ type: 'free', req_id: reqId, fork_id: forkId, x: Math.round(x), y: Math.round(y) }));
+    return true;
+  }
+
+  /** One MutatorAgent call (the browser runs the verify/repair loop). */
+  codegen(reqId: string, req: CodegenRequest): boolean {
+    if (!this.open) return false;
+    this.ws!.send(JSON.stringify({ type: 'codegen', req_id: reqId, ...req }));
     return true;
   }
 

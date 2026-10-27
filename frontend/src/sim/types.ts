@@ -1,5 +1,7 @@
 // Scene contract and worker message protocol. Everything here is plain data so it
 // crosses the worker boundary with structured clone.
+import type { SimSnapshot } from './SimCore';
+import type { RuleDef, RuleEvent, RuleInfo } from './rules';
 
 export type AcousticMaterial =
   | 'hollow_metal'
@@ -80,9 +82,14 @@ export interface EntityGeometry {
 
 export type MainToWorker =
   | { type: 'init'; manifest: SceneManifest }
+  /** Watchdog restart: rebuild from the last snapshot (presets kept, plugins dropped). */
+  | { type: 'restore'; snapshot: SimSnapshot }
   | { type: 'add'; spec: EntitySpec }
   | { type: 'patch'; id: string; grounding: Grounding }
-  | { type: 'pointer'; phase: 'down' | 'move' | 'up'; x: number; y: number; seq: number };
+  | { type: 'pointer'; phase: 'down' | 'move' | 'up'; x: number; y: number; seq: number }
+  | { type: 'rule'; def: RuleDef }
+  | { type: 'unload'; id: string }
+  | { type: 'reset_rules' };
 
 export type WorkerToMain =
   | { type: 'ready'; ids: string[]; geometry: EntityGeometry[] }
@@ -96,4 +103,11 @@ export type WorkerToMain =
       step_ms: number;
       collisions: CollisionEvent[];
     }
+  | { type: 'restored'; ids: string[] }
+  /** Active rules changed, or plugins logged something. */
+  | { type: 'rules'; active: RuleInfo[]; events: RuleEvent[]; logs: string[] }
+  /** Every SNAPSHOT_EVERY frames: what a spare worker restores from, and what the verifier copies. */
+  | { type: 'snapshot'; snapshot: SimSnapshot }
+  /** A plugin hook is starting; the next frame clears it. Names the culprit if the worker freezes. */
+  | { type: 'running'; rule: string }
   | { type: 'error'; message: string };

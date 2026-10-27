@@ -1,4 +1,4 @@
-"""Thin async client for the three Meta Model API calls SceneFork makes (docs/model-probe.md)."""
+"""Thin async client for the Meta Model API calls SceneFork makes (docs/model-probe.md)."""
 
 import base64
 import json
@@ -49,12 +49,15 @@ class MetaModelAPI:
         return events
 
     async def spark_json(self, model: str, effort: str, content: list[dict], schema: dict, name: str) -> tuple[dict, dict]:
+        return await self.spark_messages_json(model, effort, [{"role": "user", "content": content}], schema, name)
+
+    async def spark_messages_json(self, model: str, effort: str, messages: list[dict], schema: dict, name: str) -> tuple[dict, dict]:
         r = await self._client.post(
             "/chat/completions",
             json={
                 "model": model,
                 "reasoning_effort": effort,
-                "messages": [{"role": "user", "content": content}],
+                "messages": messages,
                 "response_format": {"type": "json_schema", "json_schema": {"name": name, "schema": schema, "strict": True}},
             },
         )

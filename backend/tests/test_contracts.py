@@ -10,7 +10,7 @@ from app.config import SHARED_DIR
 FIX = SHARED_DIR / "fixtures"
 
 
-@pytest.mark.parametrize("name", ["grounding", "entity"])
+@pytest.mark.parametrize("name", ["grounding", "entity", "plugin"])
 def test_shared_fixtures(name):
     for doc in json.loads((FIX / f"{name}_valid.json").read_text()):
         assert contracts.is_valid(name, doc), doc

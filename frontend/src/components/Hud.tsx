@@ -1,3 +1,6 @@
+import type { RuleInfo } from '../sim/rules';
+import type { MutatorLogEntry } from '../voice/RuleController';
+
 export interface HudStats {
   fps: number;
   stepMs: number;
@@ -7,6 +10,9 @@ export interface HudStats {
   spend: { total: number; cap: number } | null;
   /** Click to freed (segment + compile) for the last object, as the backend measured it. */
   lastFreeMs: number | null;
+  /** Verifier workers killed for going silent, and live workers restarted by the watchdog. */
+  verifierKills: number;
+  restarts: number;
 }
 
 interface Props {
@@ -14,12 +20,27 @@ interface Props {
   xray: boolean;
   muted: boolean;
   mode: 'demo' | 'fork';
+  rules: RuleInfo[];
+  log: MutatorLogEntry[];
   onToggleXray: () => void;
   onToggleMute: () => void;
   onReset: () => void;
+  onRemoveRule: (id: string) => void;
+  onResetRules: () => void;
 }
 
-export function Hud({ stats, xray, muted, mode, onToggleXray, onToggleMute, onReset }: Props) {
+const STAGE_LABEL: Record<MutatorLogEntry['stage'], string> = {
+  preset: 'preset',
+  reset: 'reset',
+  writing: 'writing',
+  testing: 'testing',
+  repairing: 'repairing',
+  installed: 'installed',
+  failed: 'failed',
+  fallback: 'fallback',
+};
+
+export function Hud({ stats, xray, muted, mode, rules, log, onToggleXray, onToggleMute, onReset, onRemoveRule, onResetRules }: Props) {
   return (
     <aside className={`hud ${xray ? 'hud-xray' : ''}`}>
       <div className="hud-row">
@@ -31,6 +52,40 @@ export function Hud({ stats, xray, muted, mode, onToggleXray, onToggleMute, onRe
         </button>
         <button onClick={onReset}>{mode === 'demo' ? <>Reset <kbd>R</kbd></> : 'Leave fork'}</button>
       </div>
+      {rules.length > 0 && (
+        <div className="hud-panel rules">
+          <div className="hud-title">
+            Active rules
+            <button className="link" onClick={onResetRules}>
+              reset all
+            </button>
+          </div>
+          <ul>
+            {rules.map((r) => (
+              <li key={r.id} title={r.writes.join(', ')}>
+                <span className={`badge badge-${r.kind}`}>{r.kind}</span>
+                <span className="rule-name">{r.name}</span>
+                <button className="x" aria-label={`Remove ${r.name}`} onClick={() => onRemoveRule(r.id)}>
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {log.length > 0 && (
+        <ol className="hud-panel mutator-log" aria-label="Mutator log">
+          {log.map((e) => (
+            <li key={e.id} className={`stage-${e.stage}`}>
+              <span className="stage">{STAGE_LABEL[e.stage]}</span>
+              <q>{e.text}</q>
+              {e.attempt > 0 && e.stage !== 'failed' && <span className="attempt"> repair {e.attempt}</span>}
+              <span className="ms"> {(e.ms / 1000).toFixed(1)}s</span>
+              {e.detail && <div className="detail">{e.detail}</div>}
+            </li>
+          ))}
+        </ol>
+      )}
       {xray && (
         <dl className="hud-stats">
           <dt>Render</dt>
@@ -49,6 +104,10 @@ export function Hud({ stats, xray, muted, mode, onToggleXray, onToggleMute, onRe
               <dd>{stats.lastFreeMs} ms (segment + outline)</dd>
             </>
           )}
+          <dt>Sandbox</dt>
+          <dd>
+            {stats.verifierKills} verifier kill{stats.verifierKills === 1 ? '' : 's'} · {stats.restarts} watchdog restart{stats.restarts === 1 ? '' : 's'}
+          </dd>
           <dt>Model API spend</dt>
           <dd>{stats.spend ? `$${stats.spend.total.toFixed(3)} of $${stats.spend.cap.toFixed(2)} cap` : '$0.00 · offline'}</dd>
         </dl>

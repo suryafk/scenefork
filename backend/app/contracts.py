@@ -39,6 +39,11 @@ def defaults_for(label: str | None) -> dict:
     return dict(table["default"])
 
 
+#: Keywords enforced locally (clamp or validate after decoding), not sent in response_format.
+MODEL_SCHEMA_DROP = {"$schema", "$id", "title", "description", "minimum", "maximum", "minLength", "maxLength",
+                     "exclusiveMinimum", "pattern", "minItems", "maxItems"}
+
+
 def model_schema(name: str) -> dict:
     """The schema as sent in response_format: structure only (types, enums, required).
 
@@ -51,7 +56,7 @@ def model_schema(name: str) -> dict:
             return {
                 k: strip(v)
                 for k, v in node.items()
-                if k not in {"$schema", "$id", "title", "description", "minimum", "maximum", "minLength", "maxLength", "exclusiveMinimum"}
+                if k not in MODEL_SCHEMA_DROP
             }
         if isinstance(node, list):
             return [strip(v) for v in node]

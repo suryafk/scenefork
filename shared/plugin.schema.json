@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scenefork/plugin.schema.json",
+  "title": "MutatorPlugin",
+  "description": "What the MutatorAgent returns for one voice command: a plugin (shared/ctx.d.ts), the fields it writes (eng review OV8) and the assertions the verifier checks (design: Assertion schema). Flat on purpose so strict json_schema decoding needs no anyOf.",
+  "type": "object",
+  "properties": {
+    "feasible": { "type": "boolean", "description": "false when the command can't be done with the ctx API; then source is empty." },
+    "reason": { "type": "string", "maxLength": 200, "description": "Why it's infeasible, or empty." },
+    "name": { "type": "string", "pattern": "^[a-z0-9_]{0,40}$", "description": "Short snake_case rule name, e.g. slingshot_truck." },
+    "summary": { "type": "string", "maxLength": 160 },
+    "writes": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "string",
+        "pattern": "^(world\\.(gravity|time_scale)|entity:([a-z0-9_]+|\\*)\\.(mass|restitution|friction|damping|body_type|velocity))$"
+      }
+    },
+    "source": { "type": "string", "maxLength": 6000 },
+    "assertions": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "properties": {
+          "scenario": {
+            "type": "object",
+            "properties": {
+              "kind": { "enum": ["init", "ticks", "dragRelease", "collision"] },
+              "entity": { "type": "string", "description": "dragRelease: the dragged entity; collision: entity a. Else empty." },
+              "other": { "type": "string", "description": "collision: entity b or \"ground\". Else empty." },
+              "drag_x_m": { "type": "number", "minimum": -3, "maximum": 3 },
+              "drag_y_m": { "type": "number", "minimum": -3, "maximum": 3 },
+              "n": { "type": "integer", "minimum": 0, "maximum": 120, "description": "ticks: steps to run. Else 0." },
+              "rel_speed_mps": { "type": "number", "minimum": 0, "maximum": 30 }
+            },
+            "required": ["kind", "entity", "other", "drag_x_m", "drag_y_m", "n", "rel_speed_mps"],
+            "additionalProperties": false
+          },
+          "target": { "type": "string", "pattern": "^(world|entity:[a-z0-9_]+)$" },
+          "field": { "enum": ["gravity_x", "gravity_y", "time_scale", "speed", "vx", "vy", "x", "y", "spin", "restitution", "mass", "friction", "alive"] },
+          "cmp": { "enum": ["gt", "lt", "between", "changed_by_gt"] },
+          "value": { "type": "number" },
+          "value_max": { "type": "number", "description": "Upper bound for between. Else 0." },
+          "at_tick": { "type": "integer", "minimum": 0, "maximum": 120 }
+        },
+        "required": ["scenario", "target", "field", "cmp", "value", "value_max", "at_tick"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["feasible", "reason", "name", "summary", "writes", "source", "assertions"],
+  "additionalProperties": false
+}

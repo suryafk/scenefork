@@ -5,6 +5,8 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   worker: { format: 'es' },
+  // shared/ (presets, contracts) lives beside frontend/, one level up.
+  server: { fs: { allow: ['..'] } },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],

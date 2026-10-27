@@ -12,7 +12,8 @@ Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude
 - Backend (pytest; fake adapters and stubbed API objects, no network, no credits): `cd backend && uv run pytest`
 - Backend server: `cd backend && uv run uvicorn app.asgi:app --port 8000` (the `backend` entry in `.claude/launch.json`). It uses free fake models unless `SCENEFORK_ADAPTERS=live` is set in `backend/.env`.
 - Contract fixtures in `shared/fixtures/` are checked by both stacks (`backend/tests/test_contracts.py`, `frontend/src/contracts.test.ts`).
-- In dev builds, `window.__sfTrace` holds the fork/physics event trace, for browser-driven checks.
+- In dev builds, `window.__sfTrace` holds the fork/physics/rules event trace, for browser-driven checks. `window.__sfCommand('slingshot the truck')` runs a voice command without a mic, and `window.__sfDebug` exposes the physics and verifier clients (for example, load a looping plugin to check the watchdog).
+- The fake backend's MutatorAgent knows four commands (slingshot, spin, sideways gravity, heavy); anything else comes back as "not possible". Real codegen needs `SCENEFORK_ADAPTERS=live`.
 - Playwright E2E is built after the first end-to-end golden demo works (eng review OV12).
 
 ## Meta Model API credit budget
