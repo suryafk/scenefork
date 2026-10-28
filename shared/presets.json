@@ -40,7 +40,7 @@
     },
     {
       "id": "moon_gravity",
-      "name": "Moon",
+      "name": "Moon gravity",
       "patterns": [
         "\\bmoon\\b",
         "\\blunar\\b"
@@ -62,7 +62,7 @@
     },
     {
       "id": "mars_gravity",
-      "name": "Mars",
+      "name": "Mars gravity",
       "patterns": [
         "\\bmars\\b",
         "\\bmartian\\b",
@@ -85,7 +85,7 @@
     },
     {
       "id": "earth_gravity",
-      "name": "Earth",
+      "name": "Earth gravity",
       "patterns": [
         "\\bearth\\b",
         "\\b(normal|regular|real) gravity\\b"
@@ -106,7 +106,7 @@
     },
     {
       "id": "jupiter_gravity",
-      "name": "Jupiter",
+      "name": "Jupiter gravity",
       "patterns": [
         "\\bjupiter\\b",
         "\\bjovian\\b"
