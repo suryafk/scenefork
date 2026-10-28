@@ -18,6 +18,9 @@ export interface GoldenObject {
   sprite_bbox: BBox;
   patch: string;
   patch_bbox: BBox;
+  /** What of the object was visible in the frame (alpha mask); absent in older exports. */
+  visible?: string;
+  visible_bbox?: BBox;
   plate_method?: string;
   grounding: Grounding;
 }
@@ -86,8 +89,10 @@ export interface GoldenEvents {
 
 interface Loaded {
   manifest: GoldenManifest;
+  frame: ImageBitmap;
   sprites: Map<string, ImageBitmap>;
   patches: Map<string, ImageBitmap>;
+  visibles: Map<string, ImageBitmap>;
 }
 
 export class GoldenController {
@@ -109,13 +114,14 @@ export class GoldenController {
     const gen = ++this.generation;
     const manifest = (await (await fetch(StaticGoldenSource.url(manifestPath))).json()) as GoldenManifest;
     const dir = StaticGoldenSource.url(manifestPath.replace(/manifest\.json$/, ''));
-    const [frame, sprites, patches] = await Promise.all([
+    const [frame, sprites, patches, visibles] = await Promise.all([
       bitmap(dir + manifest.frame),
       Promise.all(manifest.objects.map(async (o) => [o.id, await bitmap(dir + o.sprite)] as const)),
       Promise.all(manifest.objects.map(async (o) => [o.id, await bitmap(dir + o.patch)] as const)),
+      Promise.all(manifest.objects.filter((o) => o.visible).map(async (o) => [o.id, await bitmap(dir + o.visible!)] as const)),
     ]);
     if (gen !== this.generation) throw new Error('superseded');
-    this.loaded = { manifest, sprites: new Map(sprites), patches: new Map(patches) };
+    this.loaded = { manifest, frame, sprites: new Map(sprites), patches: new Map(patches), visibles: new Map(visibles) };
     this.active = true;
     this.renderer.reset(manifest.width, manifest.height, frame);
     this.physics.load({
@@ -134,9 +140,9 @@ export class GoldenController {
   /** A pointer down that grabbed no body: free the exported object under it, if any. */
   click(x: number, y: number): void {
     if (!this.active || !this.loaded) return;
-    const hit = this.loaded.manifest.objects.filter((o) => !this.freed.has(o.id) && pointInPolygon([x, y], o.polygon_px));
-    // Overlapping outlines: the smaller one is the object in front.
-    const obj = hit.sort((a, b) => a.sprite_bbox.w * a.sprite_bbox.h - b.sprite_bbox.w * b.sprite_bbox.h)[0];
+    // Overlapping outlines (a mug's whole outline runs behind the airplane in front of it): objects
+    // are exported front and top first, so the first hit is the one in front.
+    const obj = this.loaded.manifest.objects.find((o) => !this.freed.has(o.id) && pointInPolygon([x, y], o.polygon_px));
     if (!obj) {
       this.renderer.pulse(x, y);
       return;
@@ -145,7 +151,7 @@ export class GoldenController {
     this.freed.add(obj.id);
     const z = 10 + this.freed.size;
     this.textures.set(obj.id, { texture: Texture.from(this.loaded.sprites.get(obj.id)!), bbox: obj.sprite_bbox, z });
-    this.renderer.pastePatch(this.loaded.patches.get(obj.id)!, obj.patch_bbox);
+    this.repaint();
     const g = obj.grounding;
     this.physics.add({
       id: obj.id,
@@ -158,6 +164,33 @@ export class GoldenController {
     });
     this.events.label(obj.id, obj.label);
     trace('[golden] free', obj.id, obj.label, `${Math.round(performance.now() - t0)} ms`);
+  }
+
+  /**
+   * The background is the frame plus the freed objects' patches, pasted in export order (each
+   * patch shows the scene right after its object's removal), with the visible areas of objects
+   * still standing cut out. Same picture whatever order they were clicked in
+   * (backend/app/golden.py explains why).
+   */
+  private repaint(): void {
+    const l = this.loaded!;
+    const standing = l.manifest.objects.filter((o) => !this.freed.has(o.id) && o.visible_bbox && l.visibles.has(o.id));
+    this.renderer.setPlate(l.frame);
+    for (const o of l.manifest.objects) {
+      if (!this.freed.has(o.id)) continue;
+      const b = o.patch_bbox;
+      const c = document.createElement('canvas');
+      c.width = b.w;
+      c.height = b.h;
+      const g = c.getContext('2d')!;
+      g.drawImage(l.patches.get(o.id)!, 0, 0);
+      g.globalCompositeOperation = 'destination-out';
+      for (const s of standing) {
+        const v = s.visible_bbox!;
+        if (v.x < b.x + b.w && v.x + v.w > b.x && v.y < b.y + b.h && v.y + v.h > b.y) g.drawImage(l.visibles.get(s.id)!, v.x - b.x, v.y - b.y);
+      }
+      this.renderer.pastePatch(c, b);
+    }
   }
 
   added(id: string, geometry: EntityGeometry): void {

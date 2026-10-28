@@ -23,7 +23,7 @@ Also record **one fresh clip on camera** during the shoot. It is forked live in 
 
 1. Pick the fork moment and note the time `t` in seconds. Grab that frame as a PNG if OpenCV can't read your phone's HEVC (QuickTime: File → Export As → 1080p, or take a screenshot of the paused frame).
 2. Open the frame in Preview, scaled so its long side is 1280 px. Note one click point (x,y) near the middle of each object.
-   - **List stacked objects top first** (the cactus, then the book under it). Objects are removed in click order, so each background fill sees the ones above already gone.
+   - **List stacked or occluding objects first** (the cactus before the book under it, a paper airplane before the mug behind it). Objects are removed in click order; each later object is outlined again once the earlier ones are gone, so a partly hidden object comes out whole.
    - **See-through or spiky objects** (a mesh pen cup, a plant) may get only part of the object from one click. Give several points on the same object with `+`: `--click "1075,398+1075,505+1028,455"`.
    - **Note the y of the table or ground surface** for `--floor-y`, so thrown objects land on it instead of at the bottom of the frame.
 3. Run a free dry run with fake models to check the clicks hit the right objects:

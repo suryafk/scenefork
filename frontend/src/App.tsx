@@ -262,7 +262,7 @@ export function App() {
       engineRef.current = { renderer, physics, backend, fork: controller, golden: goldenController, rules: ruleController, tracker, voice };
       if (import.meta.env.DEV) {
         // Browser-driven checks: commands without a mic, and raw access for sandbox failure tests.
-        Object.assign(window, { __sfCommand: (t: string) => runCommand(t, tracker.dwell(performance.now() - 3000)), __sfDebug: { physics, verifier } });
+        Object.assign(window, { __sfCommand: (t: string) => runCommand(t, tracker.dwell(performance.now() - 3000)), __sfDebug: { physics, verifier, renderer } });
       }
       renderer.reset(WIDTH, HEIGHT, paintPlate());
       physics.load(syntheticManifest);

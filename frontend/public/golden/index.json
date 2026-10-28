@@ -19,6 +19,11 @@
      "fork_index": 0,
      "t_fork": 1.5,
      "manifest": "desk_01/0/manifest.json"
+    },
+    {
+     "fork_index": 1,
+     "t_fork": 7.0,
+     "manifest": "desk_01/1/manifest.json"
     }
    ],
    "video": "desk_01/clip.mp4"

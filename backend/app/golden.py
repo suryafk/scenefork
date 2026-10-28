@@ -8,16 +8,22 @@ and write static files the browser plays with no backend.
         frame.jpg                      the fork frame
         <obj>_sprite.webp              the object, alpha-cut
         <obj>_patch.webp               clean background under the object (see below)
+        <obj>_visible.webp             what of the object was visible in the frame (alpha mask)
 
-Objects are removed one after another on a running plate, in click order (list stacked objects top
-first), so each fill sees the earlier objects gone and the end result is one consistent empty scene.
-Every patch is cut from that empty plate over its object's removal region, minus the pixels of every
-OTHER object. So, for any set of freed objects in any order, the browser shows:
+Objects are removed one at a time on a running plate, in click order (list stacked or occluding
+objects first: the pot before the book under it, the airplane before the mug behind it).
 
-    empty plate   where some freed object's region covers it and no unfreed object stands
-    the frame     everywhere else
+  1. Every object's VISIBLE outline comes from the original frame.
+  2. Each object is then outlined again on the running plate, so a partly hidden one comes out
+     whole (the earlier removal painted its hidden part back in), grounded, and removed.
+  3. Object k's patch is the plate right after its removal, over its removal region.
 
-which also holds for stacks (a pot on books): freeing one never erases a neighbor still standing.
+The browser repaints the background as the frame plus the freed objects' patches in export order
+(k ascending), each with the visible masks of the objects still standing cut out of it. So for any
+set of freed objects, in any click order: a standing object's visible pixels are never covered, an
+area where only object k is freed shows the scene right after k's removal (a mug's reconstructed
+bottom while the mug still stands behind a freed airplane), and freeing everything shows the final
+empty plate.
 Patches are plain lossless files so they can be touched up by hand (OV9).
 """
 
@@ -79,6 +85,21 @@ def patch_image(plate: np.ndarray, region: np.ndarray, keep_out: np.ndarray | No
     return vision.encode_webp(bgra, 101), {"x": x0, "y": y0, "w": x1 - x0, "h": y1 - y0}
 
 
+#: Visible masks are grown this much, so a standing object keeps its edge pixels when a neighbor's
+#: patch is pasted around it (outlines sit about a pixel inside the true edge).
+VISIBLE_GROW_PX = 1
+
+
+def mask_image(mask: np.ndarray) -> tuple[bytes, dict]:
+    """A mask as a lossless alpha image over its bounding box (white, alpha = mask)."""
+    mask = cv2.dilate(mask.astype(np.uint8), np.ones((3, 3), np.uint8), iterations=VISIBLE_GROW_PX).astype(bool)
+    ys, xs = np.nonzero(mask)
+    x0, y0, x1, y1 = int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
+    crop = mask[y0:y1, x0:x1].astype(np.uint8) * 255
+    bgra = np.dstack([np.full_like(crop, 255)] * 3 + [crop])
+    return vision.encode_webp(bgra, 101), {"x": x0, "y": y0, "w": x1 - x0, "h": y1 - y0}
+
+
 def pixels_per_meter(objects: list[dict]) -> float:
     """OV6: median(px height / real height) over grounded dynamic objects, clamped 30-600."""
     ratios = [
@@ -99,9 +120,10 @@ async def export_fork(adapters: Adapters, frame: np.ndarray, clicks: list[Click]
     objects and any skipped clicks."""
     jpeg = vision.encode_jpeg(frame, 92)
     taken = np.zeros(frame.shape[:2], bool)
-    found: list[tuple[Click, vision.CompiledObject, dict]] = []
+    visible: list[tuple[Click, np.ndarray]] = []
     skipped: list[str] = []
-    # Pass 1: outline and ground every object on the original frame.
+    # Pass 1: each object's visible outline on the original frame. While an object stands, no
+    # other object's patch may paint over these pixels.
     for points in clicks:
         (x, y), more = points[0], tuple(points[1:])
         where = " + ".join(f"({px}, {py})" for px, py in points)
@@ -114,25 +136,33 @@ async def export_fork(adapters: Adapters, frame: np.ndarray, clicks: list[Click]
             skipped.append(f"{where} found no object (empty, tiny, or background-sized mask)")
             continue
         taken |= obj.mask
-        found.append((points, obj, contracts.pin_background(await adapters.grounder.ground(frame, obj))))
+        visible.append((points, obj.mask))
 
-    # Pass 2: remove them one by one on a running plate, so the last plate is the empty scene.
+    # Pass 2: outline, ground and remove one at a time on a running plate. An object partly hidden
+    # behind an earlier one (a mug behind a paper airplane, a book under a pot) is outlined whole
+    # here, including the part the earlier removal painted back in. Its patch is cut from the plate
+    # right after its own removal; the browser stacks patches in this order.
+    out: list[ExportedObject] = []
     plate = frame
-    methods = []
-    for _, obj, g in found:
+    for i, (points, vis) in enumerate(visible):
+        (x, y), more = points[0], tuple(points[1:])
+        mask = vis if i == 0 else await adapters.segmenter.segment(plate, vision.encode_jpeg(plate, 92), x, y, more)
+        # Whole outline plus what was visible: an earlier fill may have changed some of this
+        # object's visible pixels, and they must still be removed with it.
+        mask = vis if mask is None else (mask | vis)
+        obj = vision.compile_object(plate, mask)
+        if obj is None:
+            skipped.append(f"({x}, {y}) couldn't be outlined on the cleaned plate")
+            continue
+        g = contracts.pin_background(await adapters.grounder.ground(plate, obj))
         result = await adapters.inpainter.remove(plate, obj.inpaint_mask, g["label"])
         plate = result.plate
-        methods.append(result.method)
-
-    out: list[ExportedObject] = []
-    for i, ((points, obj, g), method) in enumerate(zip(found, methods)):
-        oid = f"obj_{i + 1}"
-        others = np.zeros(frame.shape[:2], bool)
-        for j, (_, other, _) in enumerate(found):
-            if j != i:
-                others |= other.mask
-        patch, patch_bbox = patch_image(plate, obj.inpaint_mask, others & ~obj.mask)
-        log(f"  {oid}: {g['label']} ({g['body_type']}, {g['mass_kg']:g} kg), plate via {method}")
+        # Which standing objects to cut out depends on what's freed, so the browser does that,
+        # with each object's visible mask.
+        patch, patch_bbox = patch_image(plate, obj.inpaint_mask)
+        visible_webp, visible_bbox = mask_image(vis)
+        oid = f"obj_{len(out) + 1}"
+        log(f"  {oid}: {g['label']} ({g['body_type']}, {g['mass_kg']:g} kg), plate via {result.method}")
         out.append(
             ExportedObject(
                 {
@@ -144,10 +174,12 @@ async def export_fork(adapters: Adapters, frame: np.ndarray, clicks: list[Click]
                     "sprite_bbox": obj.bbox,
                     "patch": f"{oid}_patch.webp",
                     "patch_bbox": patch_bbox,
-                    "plate_method": method,
+                    "visible": f"{oid}_visible.webp",
+                    "visible_bbox": visible_bbox,
+                    "plate_method": result.method,
                     "grounding": g,
                 },
-                {f"{oid}_sprite.webp": obj.sprite_webp, f"{oid}_patch.webp": patch},
+                {f"{oid}_sprite.webp": obj.sprite_webp, f"{oid}_patch.webp": patch, f"{oid}_visible.webp": visible_webp},
             )
         )
     return out, skipped

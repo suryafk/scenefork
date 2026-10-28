@@ -100,6 +100,13 @@
           },
           "grounding": {
             "type": "object"
+          },
+          "visible": {
+            "type": "string",
+            "description": "Alpha mask of what was visible of the object in the frame; the browser cuts standing objects' masks out of freed objects' patches."
+          },
+          "visible_bbox": {
+            "$ref": "#/$defs/bbox"
           }
         },
         "required": [

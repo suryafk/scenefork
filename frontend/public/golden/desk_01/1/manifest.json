@@ -1,0 +1,1095 @@
+{
+ "clip_id": "desk_01",
+ "title": "Desk (AI-generated)",
+ "fork_index": 1,
+ "t_fork": 7.0,
+ "width": 1280,
+ "height": 720,
+ "pixels_per_meter": 600.0,
+ "ground_material": "concrete",
+ "frame": "frame.jpg",
+ "objects": [
+  {
+   "id": "obj_1",
+   "click": [
+    210,
+    360
+   ],
+   "label": "potted cactus",
+   "polygon_px": [
+    [
+     197,
+     264
+    ],
+    [
+     187,
+     271
+    ],
+    [
+     178,
+     285
+    ],
+    [
+     176,
+     305
+    ],
+    [
+     179,
+     308
+    ],
+    [
+     184,
+     323
+    ],
+    [
+     182,
+     326
+    ],
+    [
+     166,
+     329
+    ],
+    [
+     167,
+     340
+    ],
+    [
+     172,
+     351
+    ],
+    [
+     178,
+     399
+    ],
+    [
+     180,
+     403
+    ],
+    [
+     184,
+     405
+    ],
+    [
+     239,
+     404
+    ],
+    [
+     243,
+     399
+    ],
+    [
+     249,
+     347
+    ],
+    [
+     252,
+     343
+    ],
+    [
+     255,
+     328
+    ],
+    [
+     237,
+     325
+    ],
+    [
+     235,
+     323
+    ],
+    [
+     242,
+     306
+    ],
+    [
+     242,
+     283
+    ],
+    [
+     231,
+     270
+    ],
+    [
+     224,
+     266
+    ],
+    [
+     209,
+     263
+    ]
+   ],
+   "sprite": "obj_1_sprite.webp",
+   "sprite_bbox": {
+    "x": 166,
+    "y": 263,
+    "w": 90,
+    "h": 143
+   },
+   "patch": "obj_1_patch.webp",
+   "patch_bbox": {
+    "x": 139,
+    "y": 236,
+    "w": 144,
+    "h": 209
+   },
+   "visible": "obj_1_visible.webp",
+   "visible_bbox": {
+    "x": 165,
+    "y": 262,
+    "w": 92,
+    "h": 145
+   },
+   "plate_method": "muse",
+   "grounding": {
+    "acoustic_material": "ceramic",
+    "approx_height_m": 0.15,
+    "body_type": "dynamic",
+    "friction": 0.8,
+    "label": "potted cactus",
+    "mass_kg": 0.4,
+    "restitution": 0.1
+   }
+  },
+  {
+   "id": "obj_2",
+   "click": [
+    200,
+    420
+   ],
+   "label": "hardcover book",
+   "polygon_px": [
+    [
+     73,
+     438
+    ],
+    [
+     75,
+     442
+    ],
+    [
+     81,
+     444
+    ],
+    [
+     312,
+     446
+    ],
+    [
+     339,
+     427
+    ],
+    [
+     336,
+     411
+    ],
+    [
+     340,
+     396
+    ],
+    [
+     117,
+     394
+    ],
+    [
+     76,
+     410
+    ],
+    [
+     73,
+     417
+    ]
+   ],
+   "sprite": "obj_2_sprite.webp",
+   "sprite_bbox": {
+    "x": 73,
+    "y": 394,
+    "w": 268,
+    "h": 53
+   },
+   "patch": "obj_2_patch.webp",
+   "patch_bbox": {
+    "x": 46,
+    "y": 367,
+    "w": 322,
+    "h": 119
+   },
+   "visible": "obj_2_visible.webp",
+   "visible_bbox": {
+    "x": 72,
+    "y": 393,
+    "w": 270,
+    "h": 55
+   },
+   "plate_method": "muse",
+   "grounding": {
+    "acoustic_material": "flesh_cloth",
+    "approx_height_m": 0.035,
+    "body_type": "dynamic",
+    "friction": 0.7,
+    "label": "hardcover book",
+    "mass_kg": 0.7,
+    "restitution": 0.1
+   }
+  },
+  {
+   "id": "obj_3",
+   "click": [
+    200,
+    467
+   ],
+   "label": "hardcover book",
+   "polygon_px": [
+    [
+     346,
+     430
+    ],
+    [
+     338,
+     428
+    ],
+    [
+     327,
+     434
+    ],
+    [
+     117,
+     434
+    ],
+    [
+     89,
+     445
+    ],
+    [
+     69,
+     446
+    ],
+    [
+     66,
+     455
+    ],
+    [
+     66,
+     483
+    ],
+    [
+     69,
+     488
+    ],
+    [
+     318,
+     489
+    ],
+    [
+     339,
+     470
+    ],
+    [
+     347,
+     468
+    ],
+    [
+     343,
+     455
+    ]
+   ],
+   "sprite": "obj_3_sprite.webp",
+   "sprite_bbox": {
+    "x": 65,
+    "y": 428,
+    "w": 283,
+    "h": 63
+   },
+   "patch": "obj_3_patch.webp",
+   "patch_bbox": {
+    "x": 38,
+    "y": 401,
+    "w": 337,
+    "h": 129
+   },
+   "visible": "obj_3_visible.webp",
+   "visible_bbox": {
+    "x": 65,
+    "y": 427,
+    "w": 284,
+    "h": 65
+   },
+   "plate_method": "muse",
+   "grounding": {
+    "acoustic_material": "wood",
+    "approx_height_m": 0.045,
+    "body_type": "dynamic",
+    "friction": 0.7,
+    "label": "hardcover book",
+    "mass_kg": 0.7,
+    "restitution": 0.1
+   }
+  },
+  {
+   "id": "obj_4",
+   "click": [
+    200,
+    505
+   ],
+   "label": "flat notebook",
+   "polygon_px": [
+    [
+     356,
+     468
+    ],
+    [
+     347,
+     467
+    ],
+    [
+     327,
+     485
+    ],
+    [
+     68,
+     489
+    ],
+    [
+     60,
+     485
+    ],
+    [
+     48,
+     491
+    ],
+    [
+     47,
+     516
+    ],
+    [
+     52,
+     524
+    ],
+    [
+     330,
+     524
+    ],
+    [
+     357,
+     495
+    ],
+    [
+     353,
+     488
+    ]
+   ],
+   "sprite": "obj_4_sprite.webp",
+   "sprite_bbox": {
+    "x": 47,
+    "y": 467,
+    "w": 311,
+    "h": 59
+   },
+   "patch": "obj_4_patch.webp",
+   "patch_bbox": {
+    "x": 20,
+    "y": 440,
+    "w": 365,
+    "h": 125
+   },
+   "visible": "obj_4_visible.webp",
+   "visible_bbox": {
+    "x": 47,
+    "y": 466,
+    "w": 312,
+    "h": 61
+   },
+   "plate_method": "muse",
+   "grounding": {
+    "acoustic_material": "flesh_cloth",
+    "approx_height_m": 0.025,
+    "body_type": "dynamic",
+    "friction": 0.7,
+    "label": "flat notebook",
+    "mass_kg": 0.3,
+    "restitution": 0.15
+   }
+  },
+  {
+   "id": "obj_5",
+   "click": [
+    460,
+    460
+   ],
+   "label": "desk stapler",
+   "polygon_px": [
+    [
+     538,
+     505
+    ],
+    [
+     536,
+     498
+    ],
+    [
+     529,
+     492
+    ],
+    [
+     464,
+     487
+    ],
+    [
+     459,
+     481
+    ],
+    [
+     464,
+     478
+    ],
+    [
+     504,
+     481
+    ],
+    [
+     516,
+     479
+    ],
+    [
+     518,
+     477
+    ],
+    [
+     517,
+     461
+    ],
+    [
+     529,
+     456
+    ],
+    [
+     524,
+     439
+    ],
+    [
+     518,
+     433
+    ],
+    [
+     468,
+     435
+    ],
+    [
+     404,
+     453
+    ],
+    [
+     398,
+     461
+    ],
+    [
+     397,
+     471
+    ],
+    [
+     399,
+     475
+    ],
+    [
+     406,
+     477
+    ],
+    [
+     411,
+     483
+    ],
+    [
+     401,
+     489
+    ],
+    [
+     401,
+     498
+    ],
+    [
+     505,
+     511
+    ],
+    [
+     529,
+     510
+    ]
+   ],
+   "sprite": "obj_5_sprite.webp",
+   "sprite_bbox": {
+    "x": 397,
+    "y": 433,
+    "w": 142,
+    "h": 79
+   },
+   "patch": "obj_5_patch.webp",
+   "patch_bbox": {
+    "x": 370,
+    "y": 406,
+    "w": 196,
+    "h": 145
+   },
+   "visible": "obj_5_visible.webp",
+   "visible_bbox": {
+    "x": 396,
+    "y": 432,
+    "w": 144,
+    "h": 81
+   },
+   "plate_method": "muse",
+   "grounding": {
+    "acoustic_material": "solid_metal",
+    "approx_height_m": 0.07,
+    "body_type": "dynamic",
+    "friction": 0.6,
+    "label": "desk stapler",
+    "mass_kg": 0.35,
+    "restitution": 0.15
+   }
+  },
+  {
+   "id": "obj_6",
+   "click": [
+    640,
+    500
+   ],
+   "label": "paper airplane",
+   "polygon_px": [
+    [
+     531,
+     491
+    ],
+    [
+     533,
+     495
+    ],
+    [
+     575,
+     525
+    ],
+    [
+     594,
+     532
+    ],
+    [
+     739,
+     531
+    ],
+    [
+     765,
+     535
+    ],
+    [
+     762,
+     527
+    ],
+    [
+     752,
+     517
+    ],
+    [
+     720,
+     494
+    ],
+    [
+     683,
+     462
+    ],
+    [
+     648,
+     438
+    ],
+    [
+     583,
+     427
+    ],
+    [
+     573,
+     449
+    ],
+    [
+     576,
+     468
+    ],
+    [
+     553,
+     466
+    ],
+    [
+     533,
+     486
+    ]
+   ],
+   "sprite": "obj_6_sprite.webp",
+   "sprite_bbox": {
+    "x": 531,
+    "y": 427,
+    "w": 235,
+    "h": 110
+   },
+   "patch": "obj_6_patch.webp",
+   "patch_bbox": {
+    "x": 504,
+    "y": 400,
+    "w": 289,
+    "h": 176
+   },
+   "visible": "obj_6_visible.webp",
+   "visible_bbox": {
+    "x": 531,
+    "y": 426,
+    "w": 236,
+    "h": 111
+   },
+   "plate_method": "muse",
+   "grounding": {
+    "acoustic_material": "flesh_cloth",
+    "approx_height_m": 0.06,
+    "body_type": "dynamic",
+    "friction": 0.6,
+    "label": "paper airplane",
+    "mass_kg": 0.05,
+    "restitution": 0.1
+   }
+  },
+  {
+   "id": "obj_7",
+   "click": [
+    640,
+    422
+   ],
+   "label": "ceramic mug",
+   "polygon_px": [
+    [
+     588,
+     413
+    ],
+    [
+     586,
+     423
+    ],
+    [
+     588,
+     426
+    ],
+    [
+     593,
+     479
+    ],
+    [
+     601,
+     500
+    ],
+    [
+     608,
+     508
+    ],
+    [
+     626,
+     512
+    ],
+    [
+     661,
+     512
+    ],
+    [
+     674,
+     508
+    ],
+    [
+     684,
+     491
+    ],
+    [
+     690,
+     485
+    ],
+    [
+     709,
+     474
+    ],
+    [
+     719,
+     465
+    ],
+    [
+     725,
+     454
+    ],
+    [
+     726,
+     440
+    ],
+    [
+     722,
+     431
+    ],
+    [
+     713,
+     424
+    ],
+    [
+     696,
+     423
+    ],
+    [
+     694,
+     421
+    ],
+    [
+     694,
+     414
+    ],
+    [
+     690,
+     410
+    ],
+    [
+     664,
+     406
+    ],
+    [
+     619,
+     406
+    ],
+    [
+     598,
+     408
+    ]
+   ],
+   "sprite": "obj_7_sprite.webp",
+   "sprite_bbox": {
+    "x": 586,
+    "y": 406,
+    "w": 141,
+    "h": 107
+   },
+   "patch": "obj_7_patch.webp",
+   "patch_bbox": {
+    "x": 559,
+    "y": 379,
+    "w": 195,
+    "h": 173
+   },
+   "visible": "obj_7_visible.webp",
+   "visible_bbox": {
+    "x": 585,
+    "y": 405,
+    "w": 142,
+    "h": 73
+   },
+   "plate_method": "muse",
+   "grounding": {
+    "acoustic_material": "ceramic",
+    "approx_height_m": 0.095,
+    "body_type": "dynamic",
+    "friction": 0.6,
+    "label": "ceramic mug",
+    "mass_kg": 0.35,
+    "restitution": 0.1
+   }
+  },
+  {
+   "id": "obj_8",
+   "click": [
+    900,
+    528
+   ],
+   "label": "smartphone",
+   "polygon_px": [
+    [
+     991,
+     517
+    ],
+    [
+     989,
+     514
+    ],
+    [
+     981,
+     512
+    ],
+    [
+     902,
+     506
+    ],
+    [
+     843,
+     525
+    ],
+    [
+     838,
+     528
+    ],
+    [
+     821,
+     532
+    ],
+    [
+     814,
+     537
+    ],
+    [
+     814,
+     543
+    ],
+    [
+     819,
+     548
+    ],
+    [
+     909,
+     555
+    ],
+    [
+     986,
+     527
+    ],
+    [
+     990,
+     524
+    ]
+   ],
+   "sprite": "obj_8_sprite.webp",
+   "sprite_bbox": {
+    "x": 814,
+    "y": 506,
+    "w": 178,
+    "h": 50
+   },
+   "patch": "obj_8_patch.webp",
+   "patch_bbox": {
+    "x": 787,
+    "y": 479,
+    "w": 232,
+    "h": 116
+   },
+   "visible": "obj_8_visible.webp",
+   "visible_bbox": {
+    "x": 813,
+    "y": 505,
+    "w": 180,
+    "h": 52
+   },
+   "plate_method": "muse",
+   "grounding": {
+    "acoustic_material": "glass",
+    "approx_height_m": 0.01,
+    "body_type": "dynamic",
+    "friction": 0.4,
+    "label": "smartphone",
+    "mass_kg": 0.18,
+    "restitution": 0.15
+   }
+  },
+  {
+   "id": "obj_9",
+   "click": [
+    1085,
+    400
+   ],
+   "label": "mesh pencil holder with pencils",
+   "polygon_px": [
+    [
+     1014,
+     338
+    ],
+    [
+     1026,
+     373
+    ],
+    [
+     1033,
+     383
+    ],
+    [
+     1038,
+     383
+    ],
+    [
+     1031,
+     398
+    ],
+    [
+     1037,
+     413
+    ],
+    [
+     1037,
+     509
+    ],
+    [
+     1085,
+     515
+    ],
+    [
+     1129,
+     511
+    ],
+    [
+     1133,
+     448
+    ],
+    [
+     1130,
+     446
+    ],
+    [
+     1135,
+     440
+    ],
+    [
+     1130,
+     426
+    ],
+    [
+     1135,
+     417
+    ],
+    [
+     1124,
+     413
+    ],
+    [
+     1140,
+     403
+    ],
+    [
+     1141,
+     383
+    ],
+    [
+     1151,
+     363
+    ],
+    [
+     1156,
+     361
+    ],
+    [
+     1161,
+     346
+    ],
+    [
+     1157,
+     344
+    ],
+    [
+     1147,
+     357
+    ],
+    [
+     1125,
+     354
+    ],
+    [
+     1125,
+     348
+    ],
+    [
+     1115,
+     347
+    ],
+    [
+     1105,
+     356
+    ],
+    [
+     1102,
+     371
+    ],
+    [
+     1096,
+     373
+    ],
+    [
+     1100,
+     383
+    ],
+    [
+     1090,
+     386
+    ],
+    [
+     1090,
+     327
+    ],
+    [
+     1082,
+     333
+    ],
+    [
+     1077,
+     332
+    ],
+    [
+     1073,
+     344
+    ],
+    [
+     1059,
+     343
+    ],
+    [
+     1057,
+     346
+    ],
+    [
+     1042,
+     329
+    ],
+    [
+     1041,
+     349
+    ],
+    [
+     1045,
+     360
+    ],
+    [
+     1042,
+     372
+    ],
+    [
+     1034,
+     364
+    ],
+    [
+     1028,
+     347
+    ]
+   ],
+   "sprite": "obj_9_sprite.webp",
+   "sprite_bbox": {
+    "x": 1013,
+    "y": 327,
+    "w": 149,
+    "h": 189
+   },
+   "patch": "obj_9_patch.webp",
+   "patch_bbox": {
+    "x": 986,
+    "y": 300,
+    "w": 203,
+    "h": 255
+   },
+   "visible": "obj_9_visible.webp",
+   "visible_bbox": {
+    "x": 1013,
+    "y": 326,
+    "w": 150,
+    "h": 190
+   },
+   "plate_method": "muse",
+   "grounding": {
+    "acoustic_material": "hollow_metal",
+    "approx_height_m": 0.2,
+    "body_type": "dynamic",
+    "friction": 0.6,
+    "label": "mesh pencil holder with pencils",
+    "mass_kg": 0.3,
+    "restitution": 0.25
+   }
+  }
+ ],
+ "floor_y_px": 565.0
+}
