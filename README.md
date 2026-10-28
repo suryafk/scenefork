@@ -18,6 +18,7 @@ flowchart LR
     PW -->|60 Hz frames| R[Pixi renderer + X-Ray HUD]
     PW -->|impacts| A[Procedural audio]
     VC[Voice / typed rule] --> RT{Router}
+    VC <-->|mic PCM / transcript| T
     RT -->|preset, < 5 ms| PW
     RT -->|new behavior| RC[Rule controller]
     RC -->|candidate plugin| VW["Verifier worker<br/>(shadow world)"]
@@ -29,6 +30,7 @@ flowchart LR
     G[Muse Spark<br/>mass, material, size]
     I[Muse Image<br/>clean background]
     M[Muse Spark<br/>plugin + tests]
+    T[Muse Voice Transcribe<br/>realtime speech]
   end
   F <-->|WebSocket| S & G & I
   RC <-->|WebSocket| M
@@ -39,6 +41,7 @@ flowchart LR
 | Click an object | **SAM 3.1** (`sam-3.1`) | One point prompt gives the object's mask (IoU 0.997 against ground truth in our probe). The backend turns it into a hull of convex parts and an alpha-cut sprite. |
 | It becomes physical | **Muse Spark** (`muse-spark-1.3`) | Looks at the outlined object and returns label, mass, bounciness, friction, material and real height, constrained by a JSON schema and clamped. The body moves at once with defaults; the grounded values patch in when it comes to rest. |
 | The hole fills in | **Muse Image** (`muse-image-1.0`) | Repaints only a crop around the object's region, aligned and composited back, so nothing else in the frame changes. |
+| Hold Space and speak | **Muse Voice Transcribe** (`muse-voice-transcribe-1.0`) | Mic audio streams through the backend to the realtime API, biased toward the objects on screen. Presets can fire from a partial transcript before you let go; the final arrives about 0.45 s after release. (Chrome's own speech recognition is the fallback when the backend runs fake models.) |
 | "Slingshot this" | **Muse Spark** | Writes a JavaScript plugin against a small physics API (`shared/ctx.d.ts`), declares which fields it writes, and writes its own assertions. |
 
 ## Rules that are tested before they run
@@ -95,6 +98,7 @@ No test calls a paid model. Contract fixtures in `shared/fixtures/` are checked 
 |---|---|
 | Click to freed object (live, from home) | ~1.9-2.6 s (SAM 3.1 + outline) |
 | Grounding (Muse Spark, minimal reasoning) | ~2.3 s |
+| Voice: key-up to final transcript | ~0.45 s (Muse Voice realtime) |
 | Plugin generation | ~5 s, ~$0.007 per attempt |
 | Verifier run | 10-40 ms |
 | Physics step | ~0.2 ms for 8 bodies, 60 fps render |

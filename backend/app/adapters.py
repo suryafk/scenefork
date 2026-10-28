@@ -16,6 +16,7 @@ from . import contracts, vision
 from .devcache import DevCache, request_key
 from .metaapi import MetaModelAPI, data_url
 from .mutator import FakeMutator, LiveMutator, Mutator
+from .voice import LiveTranscriber, Transcriber
 from .spend import IMAGE_PER_EDIT, SAM_PER_IMAGE, SPARK_RESERVE, SpendLedger, spark_cost
 
 
@@ -46,6 +47,8 @@ class Adapters:
     inpainter: Inpainter
     live: bool
     mutator: Mutator
+    #: Muse Voice Transcribe (live only); the browser falls back to Web Speech without it.
+    transcriber: Transcriber | None = None
 
 
 # ---------------------------------------------------------------- fakes (free)
@@ -200,4 +203,5 @@ def build_adapters(settings, ledger: SpendLedger, cache: DevCache) -> Adapters:
         LiveInpainter(api, ledger, cache),
         live=True,
         mutator=LiveMutator(api, ledger, cache, settings.codegen_effort),
+        transcriber=LiveTranscriber(settings.model_api_key, settings.model_api_base),
     )

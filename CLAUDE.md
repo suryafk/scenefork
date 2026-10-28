@@ -15,6 +15,7 @@ Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude
 - In dev builds, `window.__sfTrace` holds the fork/physics/rules event trace, for browser-driven checks. `window.__sfCommand('slingshot the truck')` runs a voice command without a mic, and `window.__sfDebug` exposes the physics and verifier clients (for example, load a looping plugin to check the watchdog).
 - The fake backend's MutatorAgent knows four commands (slingshot, spin, sideways gravity, heavy); anything else comes back as "not possible". Real codegen needs `SCENEFORK_ADAPTERS=live`.
 - Playwright E2E (golden clip, live fork, presets, codegen, demo key): `pnpm --dir frontend e2e`. It starts its own fake-model backend on 8001 and frontend on 5174, and uses the installed Google Chrome (no Playwright browser download).
+- Muse Voice realtime probe (live, about $0.0003): `cd backend && uv run python scripts/probe_voice.py`.
 - Golden clips: `cd backend && uv run python scripts/export_golden.py --help`. Output goes to `frontend/public/golden/` (format: `shared/golden.schema.json`). Runbook and shot list: `docs/demo-runbook.md`.
 
 ## Meta Model API credit budget

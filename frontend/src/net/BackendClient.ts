@@ -14,7 +14,10 @@ export interface FreedEntity {
 }
 
 export type ServerMsg =
-  | { type: 'hello'; live: boolean }
+  | { type: 'hello'; live: boolean; voice?: boolean }
+  | { type: 'voice_partial'; req_id: string; text: string }
+  | { type: 'voice_final'; req_id: string; text: string; seconds: number }
+  | { type: 'voice_failed'; req_id: string; reason: 'unavailable' | 'spend_cap' | 'error'; message: string }
   | { type: 'forked'; req_id: string; fork_id: string; width: number; height: number }
   | { type: 'freed'; req_id: string; fork_id: string; entity: FreedEntity; timing_ms: { segment: number; compile: number } }
   | { type: 'free_failed'; req_id: string; fork_id: string; reason: 'no_object' | 'spend_cap' | 'error' | 'cancelled'; message: string }
@@ -106,6 +109,21 @@ export class BackendClient {
     if (!this.open) return false;
     this.ws!.send(JSON.stringify({ type: 'codegen', req_id: reqId, ...req }));
     return true;
+  }
+
+  /** Muse Voice push-to-talk: open a turn, stream PCM frames, end it. */
+  voiceStart(reqId: string, keywords: string[]): boolean {
+    if (!this.open) return false;
+    this.ws!.send(JSON.stringify({ type: 'voice_start', req_id: reqId, keywords }));
+    return true;
+  }
+
+  voiceAudio(pcm: ArrayBuffer): void {
+    if (this.open) this.ws!.send(pcm);
+  }
+
+  voiceEnd(reqId: string): void {
+    if (this.open) this.ws!.send(JSON.stringify({ type: 'voice_end', req_id: reqId }));
   }
 
   cancel(reqId: string): void {

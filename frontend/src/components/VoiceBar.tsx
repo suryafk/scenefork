@@ -2,6 +2,8 @@ import { useState } from 'react';
 
 interface Props {
   supported: boolean;
+  /** Muse Voice (via the backend) or Chrome's built-in speech recognition. */
+  engine: 'meta' | 'web';
   listening: boolean;
   /** Live transcript while listening, or the last command heard. */
   transcript: string;
@@ -13,7 +15,7 @@ interface Props {
 
 const EXAMPLES = ['moon gravity', 'make this bouncy', 'slingshot the truck', 'reset'];
 
-export function VoiceBar({ supported, listening, transcript, building, onHoldStart, onHoldEnd, onSubmit }: Props) {
+export function VoiceBar({ supported, engine, listening, transcript, building, onHoldStart, onHoldEnd, onSubmit }: Props) {
   const [text, setText] = useState('');
   const submit = () => {
     const t = text.trim();
@@ -36,6 +38,9 @@ export function VoiceBar({ supported, listening, transcript, building, onHoldSta
       >
         {listening ? 'Listening…' : 'Hold to talk'} <kbd>Space</kbd>
       </button>
+      <span className="engine" title={engine === 'meta' ? 'Transcribed by muse-voice-transcribe-1.0 through the backend' : "Chrome's speech recognition (the backend runs fake models)"}>
+        {engine === 'meta' ? 'Muse Voice' : 'Chrome speech'}
+      </span>
       <form
         className="rule-input"
         onSubmit={(e) => {

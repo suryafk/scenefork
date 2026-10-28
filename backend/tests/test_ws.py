@@ -38,7 +38,7 @@ def test_fork_then_free_streams_freed_grounded_and_plate(settings):
     c = client(settings)
     with c.websocket_connect("/ws", headers=ORIGIN) as ws:
         hello = ws.receive_json()
-        assert hello == {"type": "hello", "live": False}
+        assert hello == {"type": "hello", "live": False, "voice": False}
         forked = fork(ws)
         assert (forked["width"], forked["height"]) == (1280, 720)
         ws.send_json({"type": "free", "req_id": "r1", "fork_id": forked["fork_id"], "x": 450, "y": 420})

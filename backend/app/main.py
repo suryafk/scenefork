@@ -6,11 +6,13 @@ client → server
   {"type": "fork", "req_id", "clip_hash", "t_fork"}  + binary JPEG (≤ 1.5 MB)
   {"type": "free", "req_id", "fork_id", "x", "y"}     click in frame pixels
   {"type": "cancel", "req_id"}                         drop a free whose result isn't back yet
+  {"type": "voice_start", "req_id", "keywords"}      then binary PCM frames (16 kHz s16le mono)
+  {"type": "voice_end", "req_id"}                      push-to-talk released
   {"type": "codegen", "req_id", "text", "scene", "bindings", "attempt", "previous"}
                                                        one MutatorAgent call; the browser verifies and
                                                        asks again (attempt 1-2) with the error
 server → client
-  {"type": "hello", "live"}                                  on connect
+  {"type": "hello", "live", "voice"}                         on connect; voice: Muse Voice available
   {"type": "forked", "req_id", "fork_id", "width", "height"}
   {"type": "freed", "req_id", "fork_id", "entity", "timing_ms"}  entity: shared/entity.schema.json
   {"type": "free_failed", "req_id", "fork_id", "reason", "message"}  reason: no_object | spend_cap | error
@@ -19,12 +21,16 @@ server → client
   {"type": "codegen_result", "req_id", "attempt", "plugin", "problems", "ms", "cached"}
                                                              plugin: shared/plugin.schema.json
   {"type": "codegen_failed", "req_id", "reason", "message"}  reason: spend_cap | error | bad_request
+  {"type": "voice_partial", "req_id", "text"}       Muse Voice's running transcript
+  {"type": "voice_final", "req_id", "text", "seconds"}
+  {"type": "voice_failed", "req_id", "reason", "message"}  reason: unavailable | spend_cap | error
   {"type": "spend", "total_usd", "cap_usd"}
   {"type": "error", "code", "req_id", "fork_id"?}           code: unknown_fork | bad_request | bad_frame | frame_too_large
 """
 
 import asyncio
 import json
+from dataclasses import dataclass, field
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -39,11 +45,14 @@ from .adapters import Adapters, build_adapters
 from .config import Settings, load_settings
 from .devcache import DevCache
 from .mutator import MAX_ATTEMPT, MAX_COMMAND_CHARS, CodegenRequest
+from .spend import VOICE_PER_SECOND
+from .voice import BYTES_PER_SECOND, MAX_SECONDS, VOICE_RESERVE, ASRStream, keywords_for
 from .session import AssetSigner, Fork, SessionStore
 from .spend import SpendCapExceeded, SpendLedger
 
 log = logging.getLogger("scenefork")
 MAX_FRAME_BYTES = int(1.5 * 1024 * 1024)
+MODEL_VOICE = "muse-voice-transcribe-1.0"
 MAX_FRAME_SIDE = 1280
 WS_UNAUTHORIZED = 4401
 WS_FORBIDDEN_ORIGIN = 4403
@@ -111,6 +120,17 @@ def create_app(settings: Settings | None = None, adapters: Adapters | None = Non
     return app
 
 
+@dataclass
+class VoiceTurn:
+    """One push-to-talk utterance. Audio that arrives while the upstream is still connecting waits."""
+
+    req_id: str
+    stream: ASRStream | None = None
+    waiting: list[bytes] = field(default_factory=list)
+    sent_bytes: int = 0
+    ended: bool = False
+
+
 class Session:
     """One browser connection. Frees run as concurrent tasks; sends are serialized."""
 
@@ -121,6 +141,9 @@ class Session:
         self.tasks: set[asyncio.Task] = set()
         #: Frees the user cancelled (clicked their ring again) before segmentation finished.
         self.cancelled: set[str] = set()
+        #: A `fork` header waiting for its JPEG frame.
+        self.pending_fork: dict | None = None
+        self.voice: VoiceTurn | None = None
 
     async def send(self, msg: dict) -> None:
         async with self.send_lock:
@@ -135,15 +158,33 @@ class Session:
         task.add_done_callback(self.tasks.discard)
 
     async def run(self) -> None:
-        await self.send({"type": "hello", "live": self.b.adapters.live})
+        await self.send({"type": "hello", "live": self.b.adapters.live, "voice": self.b.adapters.transcriber is not None})
         await self.send_spend()
         try:
             while True:
-                msg = await self.ws.receive_json()
+                frame = await self.ws.receive()
+                if frame["type"] == "websocket.disconnect":
+                    break
+                if frame.get("bytes") is not None:
+                    # Binary frames are the JPEG right after a `fork` header, or voice audio.
+                    if self.pending_fork is not None:
+                        header, self.pending_fork = self.pending_fork, None
+                        await self.on_fork(header, frame["bytes"])
+                    else:
+                        await self.on_audio(frame["bytes"])
+                    continue
+                try:
+                    msg = json.loads(frame.get("text") or "")
+                except json.JSONDecodeError:
+                    await self.send({"type": "error", "code": "bad_request", "req_id": None})
+                    continue
                 kind = msg.get("type")
                 if kind == "fork":
-                    frame_bytes = await self.ws.receive_bytes()
-                    await self.on_fork(msg, frame_bytes)
+                    self.pending_fork = msg
+                elif kind == "voice_start":
+                    await self.on_voice_start(msg)
+                elif kind == "voice_end":
+                    await self.on_voice_end(msg)
                 elif kind == "free":
                     self.spawn(self.on_free(msg))
                 elif kind == "codegen":
@@ -157,6 +198,92 @@ class Session:
         finally:
             for t in list(self.tasks):
                 t.cancel()
+            if self.voice and self.voice.stream:
+                await self.voice.stream.close()
+
+    # ------------------------------------------------------------ voice (Muse Voice Transcribe)
+
+    async def on_voice_start(self, msg: dict) -> None:
+        req_id = str(msg.get("req_id"))
+
+        def failed(reason: str, message: str) -> dict:
+            return {"type": "voice_failed", "req_id": req_id, "reason": reason, "message": message}
+
+        transcriber = self.b.adapters.transcriber
+        if transcriber is None:
+            await self.send(failed("unavailable", "Muse Voice needs live models (SCENEFORK_ADAPTERS=live)"))
+            return
+        if self.voice and self.voice.stream:
+            await self.voice.stream.close()
+        try:
+            self.b.ledger.check(VOICE_RESERVE)
+        except SpendCapExceeded as e:
+            await self.send(failed("spend_cap", str(e)))
+            return
+        turn = VoiceTurn(req_id)
+        self.voice = turn
+        keywords = keywords_for([str(k) for k in (msg.get("keywords") or [])][:80], [])
+        self.spawn(self.run_voice(turn, transcriber, keywords))
+
+    async def on_audio(self, pcm: bytes) -> None:
+        turn = self.voice
+        if turn is None or turn.ended:
+            return
+        if turn.sent_bytes + sum(map(len, turn.waiting)) + len(pcm) > MAX_SECONDS * BYTES_PER_SECOND:
+            await self.end_voice(turn)  # held too long: transcribe what we have
+            return
+        if turn.stream is None:
+            turn.waiting.append(pcm)
+            return
+        turn.sent_bytes += len(pcm)
+        await turn.stream.send_audio(pcm)
+
+    async def on_voice_end(self, msg: dict) -> None:
+        if self.voice and self.voice.req_id == str(msg.get("req_id")):
+            await self.end_voice(self.voice)
+
+    async def end_voice(self, turn: VoiceTurn) -> None:
+        if turn.ended:
+            return
+        turn.ended = True
+        if turn.stream is not None:
+            await turn.stream.end()
+
+    async def run_voice(self, turn: VoiceTurn, transcriber, keywords: list[str]) -> None:
+        text, final = "", None
+        try:
+            turn.stream = await transcriber.open(keywords)
+            for pcm in turn.waiting:
+                turn.sent_bytes += len(pcm)
+                await turn.stream.send_audio(pcm)
+            turn.waiting.clear()
+            if turn.ended:
+                await turn.stream.end()
+            async for ev in turn.stream.events():
+                kind = ev.get("type")
+                if kind == "transcript":
+                    text = ev.get("transcript", "")
+                    await self.send({"type": "voice_partial", "req_id": turn.req_id, "text": text})
+                    if ev.get("final"):
+                        final = text
+                elif kind == "speechComplete":
+                    final = ev.get("transcript", text)
+                elif kind == "error":
+                    raise RuntimeError(ev.get("message", "voice error"))
+        except Exception as e:  # network or model errors: this utterance fails, the session lives
+            log.warning("voice failed: %s", e)
+            await self.send({"type": "voice_failed", "req_id": turn.req_id, "reason": "error", "message": type(e).__name__})
+            return
+        finally:
+            seconds = turn.sent_bytes / BYTES_PER_SECOND
+            if seconds > 0:
+                self.b.ledger.charge(MODEL_VOICE, seconds * VOICE_PER_SECOND, seconds=round(seconds, 2))
+            if turn.stream is not None:
+                await turn.stream.close()
+            if self.voice is turn:
+                self.voice = None
+        await self.send({"type": "voice_final", "req_id": turn.req_id, "text": final if final is not None else text, "seconds": round(seconds, 2)})
+        await self.send_spend()
 
     async def on_fork(self, msg: dict, data: bytes) -> None:
         req_id = msg.get("req_id")

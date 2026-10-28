@@ -92,3 +92,20 @@ Findings:
 2. **A codegen attempt costs about $0.004-0.007**, below the $0.01-0.03 estimate. The prompt is about 2.6k tokens, and most of it is `shared/ctx.d.ts`.
 3. The infeasible reason ran past the schema's 200-character limit. Prose fields are now trimmed on the backend instead of triggering a schema problem.
 4. The generated code respects the sandbox rules (no `undefined`, no computed member access, `== null` checks), and declared write sets matched its writes.
+
+## Muse Voice realtime check (2026-10-29)
+
+`backend/scripts/probe_voice.py` streams `say` audio as 16 kHz PCM at real-time pace to `wss://api.meta.ai/v1/asr/realtime` (PUSH_TO_TALK, CUMULATIVE partials, keywords from the scene's labels and the rule vocabulary). It costs about $0.0003 per run.
+
+| Said | Heard | Connect | Release to final | First partial |
+|---|---|---|---|---|
+| moon gravity | moon gravity. | 2549 ms | 454 ms | 1434 ms |
+| slingshot the cactus | slingshot the cactus. | 1604 ms | 438 ms | 1877 ms |
+| make this bouncy | make this bouncy.. | 1712 ms | 475 ms | 1340 ms |
+| spin the stapler when it hits the mug | spin the stapler when it hits the mug.! | 1611 ms | 506 ms | 1515 ms |
+
+Findings:
+1. **4 of 4 transcribed correctly**, including "slingshot" and "cactus" (keyword biasing). Trailing punctuation varies; the router strips it.
+2. **About 0.45 s from key-up to the final transcript**, against 5.5 s for the file endpoint in Phase 0. This makes Muse Voice fast enough to be the primary voice path.
+3. **Opening a session takes 1.6-2.5 s.** The app opens it on key-down and buffers mic audio meanwhile, so only very short presses feel it. Presets often fire from a partial transcript before the key is released.
+4. End to end in the app (Chrome with a WAV file as the microphone, live backend): a 2.6 s press saying "moon gravity" applied the preset from a partial, and the final arrived about 0.4 s after release, in 4 of 4 runs after the first cold start.

@@ -14,7 +14,9 @@ import { VerifierClient } from './sim/VerifierClient';
 import type { RuleInfo } from './sim/rules';
 import { DeicticTracker } from './voice/DeicticTracker';
 import { RuleController, type CodegenReply, type MutatorLogEntry } from './voice/RuleController';
-import { VoiceCapture } from './voice/VoiceCapture';
+import { MetaVoiceCapture } from './voice/MetaVoiceCapture';
+import { VoiceCapture, type VoiceHandlers } from './voice/VoiceCapture';
+import { PRESETS } from './sim/rules';
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? 'http://localhost:8000';
 const CODEGEN_TIMEOUT_MS = 30_000;
@@ -30,7 +32,7 @@ interface Engine {
   golden: GoldenController;
   rules: RuleController;
   tracker: DeicticTracker;
-  voice: VoiceCapture;
+  voice: { start(): void; stop(): void; dispose(): void };
 }
 
 export function App() {
@@ -52,6 +54,8 @@ export function App() {
   const [transcript, setTranscript] = useState('');
   const [building, setBuilding] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
+  /** Which speech engine push-to-talk uses: Muse Voice when the backend offers it. */
+  const [voiceEngine, setVoiceEngine] = useState<'meta' | 'web'>('web');
   const [goldenClips, setGoldenClips] = useState<GoldenClip[]>([]);
 
   useEffect(() => {
@@ -80,6 +84,8 @@ export function App() {
     // The worker and socket handlers reach the controllers through these bindings.
     let fork: ForkController | null = null;
     let golden: GoldenController | null = null;
+    let metaVoice: MetaVoiceCapture | null = null;
+    let metaVoiceReady = false;
     const physics = new PhysicsClient({
       ready: (ids, geometry) => {
         labels.clear();
@@ -145,7 +151,17 @@ export function App() {
       BACKEND_URL,
       demoKey(),
       (m) => {
-        if (m.type === 'hello') setLive(m.live);
+        if (m.type === 'hello') {
+          setLive(m.live);
+          metaVoiceReady = !!m.voice;
+          setVoiceEngine(m.voice ? 'meta' : 'web');
+        }
+        if (m.type === 'voice_partial') return metaVoice?.partial(m.req_id, m.text);
+        if (m.type === 'voice_final') {
+          trace('[voice] muse', m.text, `${m.seconds}s`);
+          return metaVoice?.final(m.req_id, m.text);
+        }
+        if (m.type === 'voice_failed') return metaVoice?.failed(m.req_id, m.message);
         if (m.type === 'codegen_result' || m.type === 'codegen_failed') {
           trace('[codegen]', m.type, m.req_id, m.type === 'codegen_result' ? { ms: m.ms, cached: m.cached, problems: m.problems } : m.reason);
           pendingCodegen.get(m.req_id)?.(
@@ -194,19 +210,46 @@ export function App() {
       setBuilding(true);
       void ruleController.command(text, dwell, utterance).finally(() => setBuilding(ruleController.building));
     };
-    const voice = new VoiceCapture({
+    const voiceHandlers: VoiceHandlers = {
       interim: (text, startedAt) => {
         setTranscript(text);
         ruleController.interim(text, startedAt, tracker.dwell(startedAt));
       },
       final: (text, startedAt) => {
+        trace('[voice] final', text);
         setTranscript(text);
         runCommand(text, tracker.dwell(startedAt), startedAt);
       },
       listening: setListening,
       error: showToast,
-    });
-    setVoiceSupported(voice.supported);
+    };
+    const webVoice = new VoiceCapture(voiceHandlers);
+    // Bias Muse Voice toward what's on screen and the rule vocabulary.
+    const voiceKeywords = () => [
+      ...(physics.latestSnapshot?.manifest.entities.map((e) => e.label) ?? []),
+      ...PRESETS.flatMap((p) => p.keywords),
+      'slingshot', 'spin', 'gravity', 'bouncy', 'heavy', 'launch', 'throw', 'freeze', 'explode',
+    ];
+    metaVoice = new MetaVoiceCapture(
+      { start: (id, k) => backend.voiceStart(id, k), audio: (pcm) => backend.voiceAudio(pcm), end: (id) => backend.voiceEnd(id) },
+      voiceHandlers,
+      voiceKeywords,
+    );
+    const meta = metaVoice;
+    let activeVoice: 'meta' | 'web' | null = null;
+    const voice = {
+      start: () => {
+        activeVoice = metaVoiceReady && backend.open && meta.supported ? 'meta' : 'web';
+        trace('[voice] start', activeVoice);
+        (activeVoice === 'meta' ? meta : webVoice).start();
+      },
+      stop: () => (activeVoice === 'meta' ? meta.stop() : webVoice.stop()),
+      dispose: () => {
+        meta.dispose();
+        webVoice.dispose();
+      },
+    };
+    setVoiceSupported(webVoice.supported || meta.supported);
     const controller = fork;
 
     renderer.init(host, WIDTH, HEIGHT).then(() => {
@@ -406,6 +449,7 @@ export function App() {
       </section>
       <VoiceBar
         supported={voiceSupported}
+        engine={voiceEngine}
         listening={listening}
         transcript={transcript}
         building={building}
