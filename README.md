@@ -90,7 +90,7 @@ Controls: drag to throw, **X** for X-Ray, **M** to mute, hold **Space** to speak
 | Backend (pytest) | `cd backend && uv run pytest` | WebSocket protocol, spend cap and cache, mask compiling, live adapters against stubs, golden export |
 | End to end (Playwright) | `pnpm --dir frontend e2e` | golden clip, live fork, presets, codegen pass and graceful failure, demo key |
 
-No test calls a paid model. Contract fixtures in `shared/fixtures/` are checked by both stacks.
+No test calls a paid model. Contract fixtures in `shared/fixtures/` are checked by both stacks. Model quality is measured separately by the [evals](evals/README.md), against the live API.
 
 ## Measured
 
@@ -102,7 +102,8 @@ No test calls a paid model. Contract fixtures in `shared/fixtures/` are checked 
 | Plugin generation | ~5 s, ~$0.007 per attempt |
 | Verifier run | 10-40 ms |
 | Physics step | ~0.2 ms for 8 bodies, 60 fps render |
-| Live codegen check | 3 of 3 commands correct on the first try ([details](docs/model-probe.md)) |
+| Mutator eval (10 commands × 5 runs, real verifier) | **48/50 runs pass, 10/10 commands meet the 4/5 bar**, 44 right on the first call ([results](evals/results/mutator-latest.md)) |
+| Grounding eval (golden objects) | **8/8** label, mass range and body type ([results](evals/results/grounding-latest.md)) |
 
 ## Layout
 

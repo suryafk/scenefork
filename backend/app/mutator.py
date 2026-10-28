@@ -32,6 +32,9 @@ class CodegenRequest:
     bindings: dict
     attempt: int
     previous: dict | None  # {"plugin": {...}, "error": "..."}
+    #: Evals: run N of the same command. Part of the dev-cache key, so repeated runs are separate
+    #: samples, and re-running an eval replays them for free. Not sent to the model.
+    variant: int = 0
 
 
 @dataclass
@@ -194,7 +197,7 @@ class LiveMutator:
 
     async def generate(self, req: CodegenRequest) -> CodegenResult:
         messages = build_messages(req)
-        key = request_key(MODEL, self.effort, "mutator-v1", json.dumps(messages, sort_keys=True))
+        key = request_key(MODEL, self.effort, "mutator-v1", json.dumps(messages, sort_keys=True), *([f"variant-{req.variant}"] if req.variant else []))
         doc = self.cache.get_json(key)
         cached = doc is not None
         if doc is None:

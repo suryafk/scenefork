@@ -1,0 +1,209 @@
+[
+ {
+  "case": {
+   "fork": "desk_01/0",
+   "object": "obj_1",
+   "class": [
+    "cactus",
+    "plant",
+    "pot"
+   ],
+   "mass_kg": [
+    0.1,
+    2.5
+   ],
+   "body_type": "dynamic"
+  },
+  "grounding": {
+   "acoustic_material": "ceramic",
+   "approx_height_m": 0.15,
+   "body_type": "dynamic",
+   "friction": 0.8,
+   "label": "mini potted cactus",
+   "mass_kg": 0.4,
+   "restitution": 0.1
+  },
+  "problems": [],
+  "ms": 2344
+ },
+ {
+  "case": {
+   "fork": "desk_01/0",
+   "object": "obj_2",
+   "class": [
+    "book"
+   ],
+   "mass_kg": [
+    0.15,
+    2.0
+   ],
+   "body_type": "dynamic"
+  },
+  "grounding": {
+   "acoustic_material": "flesh_cloth",
+   "approx_height_m": 0.04,
+   "body_type": "dynamic",
+   "friction": 0.6,
+   "label": "top blue hardcover book",
+   "mass_kg": 0.6,
+   "restitution": 0.1
+  },
+  "problems": [],
+  "ms": 2490
+ },
+ {
+  "case": {
+   "fork": "desk_01/0",
+   "object": "obj_3",
+   "class": [
+    "book"
+   ],
+   "mass_kg": [
+    0.15,
+    2.0
+   ],
+   "body_type": "dynamic"
+  },
+  "grounding": {
+   "acoustic_material": "wood",
+   "approx_height_m": 0.045,
+   "body_type": "dynamic",
+   "friction": 0.7,
+   "label": "middle book",
+   "mass_kg": 0.6,
+   "restitution": 0.1
+  },
+  "problems": [],
+  "ms": 2627
+ },
+ {
+  "case": {
+   "fork": "desk_01/0",
+   "object": "obj_4",
+   "class": [
+    "book"
+   ],
+   "mass_kg": [
+    0.15,
+    2.0
+   ],
+   "body_type": "dynamic"
+  },
+  "grounding": {
+   "acoustic_material": "wood",
+   "approx_height_m": 0.035,
+   "body_type": "dynamic",
+   "friction": 0.7,
+   "label": "bottom book",
+   "mass_kg": 0.8,
+   "restitution": 0.1
+  },
+  "problems": [],
+  "ms": 1792
+ },
+ {
+  "case": {
+   "fork": "desk_01/0",
+   "object": "obj_5",
+   "class": [
+    "stapler"
+   ],
+   "mass_kg": [
+    0.08,
+    1.0
+   ],
+   "body_type": "dynamic"
+  },
+  "grounding": {
+   "acoustic_material": "solid_metal",
+   "approx_height_m": 0.07,
+   "body_type": "dynamic",
+   "friction": 0.6,
+   "label": "desk stapler",
+   "mass_kg": 0.3,
+   "restitution": 0.15
+  },
+  "problems": [],
+  "ms": 2517
+ },
+ {
+  "case": {
+   "fork": "desk_01/0",
+   "object": "obj_6",
+   "class": [
+    "mug",
+    "cup"
+   ],
+   "mass_kg": [
+    0.15,
+    0.8
+   ],
+   "body_type": "dynamic"
+  },
+  "grounding": {
+   "acoustic_material": "ceramic",
+   "approx_height_m": 0.095,
+   "body_type": "dynamic",
+   "friction": 0.6,
+   "label": "blue ceramic mug",
+   "mass_kg": 0.35,
+   "restitution": 0.1
+  },
+  "problems": [],
+  "ms": 1485
+ },
+ {
+  "case": {
+   "fork": "desk_01/0",
+   "object": "obj_7",
+   "class": [
+    "phone",
+    "smartphone"
+   ],
+   "mass_kg": [
+    0.1,
+    0.4
+   ],
+   "body_type": "dynamic"
+  },
+  "grounding": {
+   "acoustic_material": "glass",
+   "approx_height_m": 0.15,
+   "body_type": "dynamic",
+   "friction": 0.5,
+   "label": "smartphone",
+   "mass_kg": 0.18,
+   "restitution": 0.2
+  },
+  "problems": [],
+  "ms": 2721
+ },
+ {
+  "case": {
+   "fork": "desk_01/0",
+   "object": "obj_8",
+   "class": [
+    "pencil",
+    "pen",
+    "holder",
+    "cup"
+   ],
+   "mass_kg": [
+    0.05,
+    1.2
+   ],
+   "body_type": "dynamic"
+  },
+  "grounding": {
+   "acoustic_material": "hollow_metal",
+   "approx_height_m": 0.19,
+   "body_type": "dynamic",
+   "friction": 0.5,
+   "label": "pencil holder with pencils",
+   "mass_kg": 0.2,
+   "restitution": 0.2
+  },
+  "problems": [],
+  "ms": 1476
+ }
+]

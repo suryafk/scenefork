@@ -8,7 +8,7 @@ client → server
   {"type": "cancel", "req_id"}                         drop a free whose result isn't back yet
   {"type": "voice_start", "req_id", "keywords"}      then binary PCM frames (16 kHz s16le mono)
   {"type": "voice_end", "req_id"}                      push-to-talk released
-  {"type": "codegen", "req_id", "text", "scene", "bindings", "attempt", "previous"}
+  {"type": "codegen", "req_id", "text", "scene", "bindings", "attempt", "previous", "variant"?}
                                                        one MutatorAgent call; the browser verifies and
                                                        asks again (attempt 1-2) with the error
 server → client
@@ -389,7 +389,9 @@ class Session:
         if not isinstance(attempt, int) or not 0 <= attempt <= MAX_ATTEMPT or (attempt > 0 and not isinstance(previous, dict)):
             await self.send(failed("bad_request", f"attempt must be 0-{MAX_ATTEMPT}, and repairs need the previous plugin"))
             return
-        req = CodegenRequest(text.strip(), scene, msg.get("bindings") or {}, attempt, previous if attempt else None)
+        variant = msg.get("variant", 0)
+        variant = variant if isinstance(variant, int) and 0 <= variant <= 99 else 0
+        req = CodegenRequest(text.strip(), scene, msg.get("bindings") or {}, attempt, previous if attempt else None, variant)
         t0 = time.perf_counter()
         try:
             result = await self.b.adapters.mutator.generate(req)

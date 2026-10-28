@@ -1,0 +1,2899 @@
+{
+ "runs": 5,
+ "spent": 0,
+ "aborted": "",
+ "rows": [
+  {
+   "case": {
+    "id": "slingshot",
+    "text": "slingshot this",
+    "pointer": "truck",
+    "expect": "install"
+   },
+   "outcomes": [
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 15,
+        "cmp": "gt",
+        "field": "speed",
+        "scenario": {
+         "drag_x_m": 2,
+         "drag_y_m": 0,
+         "entity": "truck",
+         "kind": "dragRelease",
+         "n": 60,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 2,
+        "value_max": 0
+       },
+       {
+        "at_tick": 60,
+        "cmp": "changed_by_gt",
+        "field": "x",
+        "scenario": {
+         "drag_x_m": 2,
+         "drag_y_m": 0,
+         "entity": "truck",
+         "kind": "dragRelease",
+         "n": 60,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 1,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "slingshot_this",
+      "reason": "",
+      "source": "let target = null;\nlet gx = 0;\nlet gy = 0;\nconst BOOST = 6;\nconst MIN_D = 0.15;\nreturn {\n  onInit() {\n    if (ctx.bindings.thisId != null) { target = ctx.bindings.thisId; }\n    else {\n      let ids = ctx.entities();\n      for (let id of ids) { target = id; break; }\n    }\n  },\n  onGrab(id) {\n    if (id !== target) { return; }\n    let e = ctx.entity(id);\n    if (e == null) { return; }\n    gx = e.x;\n    gy = e.y;\n  },\n  onRelease(id) {\n    if (id !== target) { return; }\n    let e = ctx.entity(id);\n    if (e == null) { return; }\n    let dx = e.x - gx;\n    let dy = e.y - gy;\n    let d = Math.sqrt(dx * dx + dy * dy);\n    if (!(d > MIN_D)) { return; }\n    let vx = dx * BOOST;\n    let vy = dy * BOOST;\n    ctx.setVelocity(id, e.vx + vx, e.vy + vy);\n    ctx.log(\"slingshot\", id, d);\n  }\n};",
+      "summary": "Dragging and releasing the truck slingshots it in the direction you pulled it.",
+      "writes": [
+       "entity:truck.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 5.339515884611461,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0.0423932106126788
+       },
+       {
+        "index": 1,
+        "value": 5.9887847900390625,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 7.508386135101318
+       }
+      ],
+      "ms": 95,
+      "logs": [
+       "slingshot_this: slingshot truck 2.2277433927516253"
+      ]
+     },
+     "history": [],
+     "ms": 905
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 10,
+        "cmp": "gt",
+        "field": "speed",
+        "scenario": {
+         "drag_x_m": 2,
+         "drag_y_m": 0,
+         "entity": "truck",
+         "kind": "dragRelease",
+         "n": 60,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 5,
+        "value_max": 0
+       },
+       {
+        "at_tick": 10,
+        "cmp": "gt",
+        "field": "speed",
+        "scenario": {
+         "drag_x_m": -1.5,
+         "drag_y_m": -1,
+         "entity": "truck",
+         "kind": "dragRelease",
+         "n": 60,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 4,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "slingshot_this",
+      "reason": "Grab position is stored and release applies a boosted velocity opposite the pull so dragging back slingshots the truck forward.",
+      "source": "let targetId = null;\nlet grabX = 0;\nlet grabY = 0;\nlet hasGrab = false;\nreturn {\n  onGrab(id) {\n    if (id === \"truck\") {\n      targetId = id;\n      let e = ctx.entity(id);\n      if (e != null) { grabX = e.x; grabY = e.y; hasGrab = true; }\n    }\n  },\n  onRelease(id) {\n    if (id === \"truck\" && hasGrab) {\n      let e = ctx.entity(id);\n      if (e != null) {\n        let dx = e.x - grabX;\n        let dy = e.y - grabY;\n        let gain = 8;\n        let nvx = 0 - dx * gain;\n        let nvy = 0 - dy * gain;\n        if (nvx > 20) { nvx = 20; }\n        if (nvx < -20) { nvx = -20; }\n        if (nvy > 20) { nvy = 20; }\n        if (nvy < -20) { nvy = -20; }\n        if (dx * dx + dy * dy > 0.04) {\n          ctx.setVelocity(id, e.vx + nvx, e.vy + nvy);\n        }\n      }\n      hasGrab = false;\n    }\n  }\n};",
+      "summary": "Drag the truck back and let go to slingshot it forward.",
+      "writes": [
+       "entity:truck.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 17.115466801497472,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0.033274190242309626
+       },
+       {
+        "index": 1,
+        "value": 13.513317283214288,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 2.5801979381351963
+       }
+      ],
+      "ms": 96,
+      "logs": []
+     },
+     "history": [],
+     "ms": 893
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 5,
+        "cmp": "gt",
+        "field": "vx",
+        "scenario": {
+         "drag_x_m": -2,
+         "drag_y_m": 0,
+         "entity": "truck",
+         "kind": "dragRelease",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 3,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "slingshot_truck",
+      "reason": "Tracked drag while held and flings opposite on release",
+      "source": "let targetId = null;\nlet startX = 0;\nlet startY = 0;\nlet lastX = 0;\nlet lastY = 0;\nlet holding = false;\nreturn {\n  onInit() {\n    let b = ctx.bindings;\n    if (b.thisId != null) { targetId = b.thisId; }\n    else {\n      let f = ctx.find(\"truck\");\n      for (let id of f) { targetId = id; }\n    }\n  },\n  onGrab(id) {\n    if (id === targetId) {\n      let e = ctx.entity(id);\n      if (e != null) {\n        startX = e.x;\n        startY = e.y;\n        lastX = e.x;\n        lastY = e.y;\n        holding = true;\n      }\n    }\n  },\n  onStep(dt) {\n    if (targetId == null) { return; }\n    let e = ctx.entity(targetId);\n    if (e == null) { return; }\n    if (e.held) {\n      holding = true;\n      lastX = e.x;\n      lastY = e.y;\n    }\n  },\n  onRelease(id) {\n    if (id === targetId) {\n      let e = ctx.entity(id);\n      if (e == null) { return; }\n      let dx = lastX - startX;\n      let dy = lastY - startY;\n      let k = 6;\n      let nvx = 0 - dx * k;\n      let nvy = 0 - dy * k;\n      if (nvx > 12) { nvx = 12; }\n      if (nvx < -12) { nvx = -12; }\n      if (nvy > 12) { nvy = 12; }\n      if (nvy < -12) { nvy = -12; }\n      if (dx > -0.2 && dx < 0.2 && dy > -0.2 && dy < 0.2) { holding = false; return; }\n      ctx.setVelocity(id, nvx, nvy);\n      holding = false;\n      ctx.log(\"slingshot\", nvx, nvy);\n    }\n  }\n};",
+      "summary": "Drag the truck back and let go to slingshot it the opposite way.",
+      "writes": [
+       "entity:truck.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": 11.33141803741455,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0.0842781513929367
+       }
+      ],
+      "ms": 78,
+      "logs": [
+       "slingshot_truck: slingshot 12 -0.025302886962890625"
+      ]
+     },
+     "history": [],
+     "ms": 902
+    },
+    {
+     "kind": "passed",
+     "attempts": 2,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 10,
+        "cmp": "gt",
+        "field": "speed",
+        "scenario": {
+         "drag_x_m": 3,
+         "drag_y_m": -1,
+         "entity": "truck",
+         "kind": "dragRelease",
+         "n": 30,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 10,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "slingshot_this",
+      "reason": "Release velocity is multiplied so a drag-throw launches much faster.",
+      "source": "let sx = 0;\nlet sy = 0;\nlet hasGrab = false;\nlet grabId = \"\";\nreturn {\n  onGrab(id) {\n    let e = ctx.entity(id);\n    if (e == null) { return; }\n    sx = e.x;\n    sy = e.y;\n    grabId = id;\n    hasGrab = true;\n  },\n  onRelease(id) {\n    let e = ctx.entity(id);\n    if (e == null) { return; }\n    if (!e.dynamic) { return; }\n    let vx = e.vx;\n    let vy = e.vy;\n    if (!isFinite(vx)) { vx = 0; }\n    if (!isFinite(vy)) { vy = 0; }\n    if (hasGrab) {\n      let dx = e.x - sx;\n      let dy = e.y - sy;\n      hasGrab = false;\n      let wantVx = dx * 10;\n      let wantVy = dy * 10;\n      let bvVx = vx * 8;\n      let bvVy = vy * 8;\n      let useVx = wantVx;\n      let useVy = wantVy;\n      let wSp = Math.sqrt(wantVx * wantVx + wantVy * wantVy);\n      let bSp = Math.sqrt(bvVx * bvVx + bvVy * bvVy);\n      if (bSp > wSp) { useVx = bvVx; useVy = bvVy; }\n      let sp = Math.sqrt(useVx * useVx + useVy * useVy);\n      if (sp < 25) {\n        let s = 25 / (sp + 0.001);\n        useVx = useVx * s;\n        useVy = useVy * s;\n      }\n      ctx.setVelocity(id, useVx, useVy);\n    } else {\n      ctx.setVelocity(id, vx * 8, vy * 8);\n    }\n    ctx.log('slingshot', id);\n  }\n};",
+      "summary": "Dragging and releasing now slingshots with boosted speed.",
+      "writes": [
+       "entity:*.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": 12.11788472399889,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 1.6807968985939674
+       }
+      ],
+      "ms": 77,
+      "logs": [
+       "slingshot_this: slingshot truck"
+      ]
+     },
+     "history": [
+      {
+       "stage": "assertions",
+       "error": "assertion 1: entity:truck speed at tick 10 was 2.03, expected > 10 (drag truck by (3, -1) m and release)"
+      }
+     ],
+     "ms": 1779
+    },
+    {
+     "kind": "failed",
+     "attempts": 3,
+     "error": "assertion 1: entity:truck vx at tick 30 was -2.16, expected > 5 (drag truck by (-2, 0) m and release)",
+     "history": [
+      {
+       "stage": "assertions",
+       "error": "assertion 1: entity:truck vx at tick 30 was -9.38, expected > 5 (drag truck by (-2, 0) m and release)"
+      },
+      {
+       "stage": "assertions",
+       "error": "assertion 1: entity:truck vx at tick 30 was -3.49, expected > 5 (drag truck by (-2, 0) m and release)"
+      },
+      {
+       "stage": "assertions",
+       "error": "assertion 1: entity:truck vx at tick 30 was -2.16, expected > 5 (drag truck by (-2, 0) m and release)"
+      }
+     ],
+     "ms": 2663
+    }
+   ]
+  },
+  {
+   "case": {
+    "id": "moon",
+    "text": "make the gravity feel like on the moon",
+    "expect": "install"
+   },
+   "outcomes": [
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "lt",
+        "field": "gravity_y",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 5,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "moon_gravity",
+      "reason": "",
+      "source": "let done = false;\nreturn {\n  onInit() {\n    ctx.setGravity(0, 1.62);\n    done = true;\n    ctx.log('moon gravity');\n  },\n  onStep(dt) {\n    if (done === false) { ctx.setGravity(0, 1.62); done = true; }\n  }\n};",
+      "summary": "Gravity now feels like the Moon.",
+      "writes": [
+       "world.gravity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": 1.62,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 9.81
+       }
+      ],
+      "ms": 17,
+      "logs": [
+       "moon_gravity: moon gravity"
+      ]
+     },
+     "history": [],
+     "ms": 140
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "lt",
+        "field": "gravity_y",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 5,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "moon_gravity",
+      "reason": "Sets world gravity to lunar value (~1.62 m/s^2 down).",
+      "source": "let DONE = false;\nreturn {\n  onInit() {\n    ctx.setGravity(0, 1.62);\n    ctx.log('moon gravity on');\n  },\n  onStep(dt) {\n    if (!DONE) { ctx.setGravity(0, 1.62); DONE = true; }\n  }\n};",
+      "summary": "Gravity now feels like the Moon.",
+      "writes": [
+       "world.gravity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": 1.62,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 9.81
+       }
+      ],
+      "ms": 17,
+      "logs": [
+       "moon_gravity: moon gravity on"
+      ]
+     },
+     "history": [],
+     "ms": 133
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "lt",
+        "field": "gravity_y",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 5,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "moon_gravity",
+      "reason": "Sets world gravity to lunar value (~1.62 m/s^2).",
+      "source": "let done = false;\nreturn {\n  onInit() {\n    ctx.setGravity(0, 1.62);\n    ctx.log('moon gravity');\n    done = true;\n  },\n  onStep(dt) {\n    if (!done) {\n      ctx.setGravity(0, 1.62);\n      done = true;\n    }\n  }\n};",
+      "summary": "Gravity now feels like the Moon.",
+      "writes": [
+       "world.gravity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": 1.62,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 9.81
+       }
+      ],
+      "ms": 16,
+      "logs": [
+       "moon_gravity: moon gravity"
+      ]
+     },
+     "history": [],
+     "ms": 138
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "between",
+        "field": "gravity_y",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 0.8,
+        "value_max": 2.5
+       }
+      ],
+      "feasible": true,
+      "name": "moon_gravity",
+      "reason": "",
+      "source": "let g=1.62;\nreturn { onInit() { ctx.setGravity(0, g); ctx.log('moon gravity'); }, onStep(dt) { let cur = ctx.gravity(); if (cur.y !== g) ctx.setGravity(0, g); } };",
+      "summary": "Gravity now feels like the Moon.",
+      "writes": [
+       "world.gravity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": 1.62,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 9.81
+       }
+      ],
+      "ms": 16,
+      "logs": [
+       "moon_gravity: moon gravity"
+      ]
+     },
+     "history": [],
+     "ms": 141
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "between",
+        "field": "gravity_y",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 1,
+        "value_max": 2.5
+       },
+       {
+        "at_tick": 5,
+        "cmp": "between",
+        "field": "gravity_y",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 10,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 1,
+        "value_max": 2.5
+       }
+      ],
+      "feasible": true,
+      "name": "moon_gravity",
+      "reason": "",
+      "source": "return { onInit() { ctx.setGravity(0, 1.62); }, onStep(dt) { ctx.setGravity(0, 1.62); } };",
+      "summary": "Gravity now feels like the Moon.",
+      "writes": [
+       "world.gravity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 1.62,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 9.81
+       },
+       {
+        "index": 1,
+        "value": 1.62,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 9.81
+       }
+      ],
+      "ms": 60,
+      "logs": []
+     },
+     "history": [],
+     "ms": 876
+    }
+   ]
+  },
+  {
+   "case": {
+    "id": "bouncy_all",
+    "text": "make everything super bouncy",
+    "expect": "install"
+   },
+   "outcomes": [
+    {
+     "kind": "passed",
+     "attempts": 3,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 15,
+        "cmp": "gt",
+        "field": "speed",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "ball",
+         "kind": "collision",
+         "n": 0,
+         "other": "ground",
+         "rel_speed_mps": 5
+        },
+        "target": "entity:ball",
+        "value": 2.5,
+        "value_max": 0
+       },
+       {
+        "at_tick": 15,
+        "cmp": "gt",
+        "field": "speed",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "crate",
+         "kind": "collision",
+         "n": 0,
+         "other": "ground",
+         "rel_speed_mps": 5
+        },
+        "target": "entity:crate",
+        "value": 2.5,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "super_bouncy_everything",
+      "reason": "Restitution alone does not bounce off ground, so add a stronger active collision bounce kick plus max restitution.",
+      "source": "let ids = [];\nreturn {\n  onInit() {\n    ids = ctx.entities();\n    for (let id of ids) {\n      let e = ctx.entity(id);\n      if (e != null) { ctx.setRestitution(id, 1.2); }\n    }\n    ctx.log('super bouncy on');\n  },\n  onCollision(e) {\n    let id = e.a;\n    if (id == 'ground') { id = e.b; }\n    if (id == 'ground') { return; }\n    let v = ctx.entity(id);\n    if (v == null) { return; }\n    if (v.held) { return; }\n    ctx.setRestitution(id, 1.2);\n    let kick = e.speed * 1.2;\n    if (kick < 7) { kick = 7; }\n    ctx.setVelocity(id, v.vx, -kick);\n  }\n};",
+      "summary": "Everything is now super bouncy.",
+      "writes": [
+       "entity:*.restitution",
+       "entity:*.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 4.874476909637451,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0.3271653354167938
+       },
+       {
+        "index": 1,
+        "value": 4.24177360534668,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0.0021597015805091247
+       }
+      ],
+      "ms": 72,
+      "logs": [
+       "super_bouncy_everything: super bouncy on",
+       "super_bouncy_everything: super bouncy on"
+      ]
+     },
+     "history": [
+      {
+       "stage": "assertions",
+       "error": "assertion 1: entity:ball speed at tick 15 was 0.97, expected > 2.5 (ball hits ground at 5 m/s)"
+      },
+      {
+       "stage": "assertions",
+       "error": "assertion 2: entity:crate speed at tick 15 was 2.44, expected > 2.5 (crate hits ground at 5 m/s)"
+      }
+     ],
+     "ms": 2655
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "gt",
+        "field": "restitution",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "ball",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:ball",
+        "value": 0.8,
+        "value_max": 0
+       },
+       {
+        "at_tick": 0,
+        "cmp": "gt",
+        "field": "restitution",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "crate",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:crate",
+        "value": 0.8,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "super_bouncy_everything",
+      "reason": "",
+      "source": "let IDS = [];\nreturn {\n onInit() {\n  let ids = ctx.entities();\n  for (let id of ids) {\n   let e = ctx.entity(id);\n   if (e == null) { continue; }\n   ctx.setRestitution(id, 1.0);\n  }\n  ctx.log('super bouncy on');\n }\n};",
+      "summary": "Made everything super bouncy.",
+      "writes": [
+       "entity:*.restitution"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 1,
+        "pass": true,
+        "baselinePass": true,
+        "baselineValue": 0.85
+       },
+       {
+        "index": 1,
+        "value": 1,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0.2
+       }
+      ],
+      "ms": 19,
+      "logs": [
+       "super_bouncy_everything: super bouncy on",
+       "super_bouncy_everything: super bouncy on"
+      ]
+     },
+     "history": [],
+     "ms": 155
+    },
+    {
+     "kind": "passed",
+     "attempts": 2,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 10,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "ball",
+         "kind": "collision",
+         "n": 0,
+         "other": "ground",
+         "rel_speed_mps": 5
+        },
+        "target": "entity:ball",
+        "value": -0.5,
+        "value_max": 0
+       },
+       {
+        "at_tick": 10,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "crate",
+         "kind": "collision",
+         "n": 0,
+         "other": "ground",
+         "rel_speed_mps": 5
+        },
+        "target": "entity:crate",
+        "value": -0.5,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "super_bouncy_everything",
+      "reason": "",
+      "source": "let ids = [];\nreturn {\n  onInit() {\n    ids = ctx.entities();\n    for (const id of ids) {\n      const e = ctx.entity(id);\n      if (e != null && e.dynamic) { ctx.setRestitution(id, 1.2); }\n    }\n    ctx.log('super bouncy on');\n  },\n  onStep(dt) {\n    for (const id of ids) {\n      const e = ctx.entity(id);\n      if (e != null && e.dynamic && e.restitution < 1.2) { ctx.setRestitution(id, 1.2); }\n    }\n  }\n};",
+      "summary": "Made everything super bouncy.",
+      "writes": [
+       "entity:*.restitution"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": -2.0482776165008545,
+        "pass": true,
+        "baselinePass": true,
+        "baselineValue": -1.1446647644042969
+       },
+       {
+        "index": 1,
+        "value": -0.8786035776138306,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 1.503627361509885e-10
+       }
+      ],
+      "ms": 66,
+      "logs": [
+       "super_bouncy_everything: super bouncy on",
+       "super_bouncy_everything: super bouncy on"
+      ]
+     },
+     "history": [
+      {
+       "stage": "assertions",
+       "error": "assertion 2: entity:crate vy at tick 10 was -0.74, expected < -1 (crate hits ground at 5 m/s)"
+      }
+     ],
+     "ms": 1775
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "gt",
+        "field": "restitution",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:ball",
+        "value": 0.8,
+        "value_max": 0
+       },
+       {
+        "at_tick": 0,
+        "cmp": "gt",
+        "field": "restitution",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:crate",
+        "value": 0.8,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "super_bouncy_everything",
+      "reason": "",
+      "source": "let ids = [];\nreturn {\n  onInit() {\n    ids = ctx.entities();\n    for (const id of ids) {\n      const e = ctx.entity(id);\n      if (e == null) continue;\n      ctx.setRestitution(id, 1.1);\n    }\n    ctx.log('everything super bouncy');\n  },\n  onStep(dt) {\n    for (const id of ids) {\n      const e = ctx.entity(id);\n      if (e == null) continue;\n      if (e.restitution < 1.0) ctx.setRestitution(id, 1.1);\n    }\n  }\n};",
+      "summary": "Made everything super bouncy.",
+      "writes": [
+       "entity:*.restitution"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 1.1,
+        "pass": true,
+        "baselinePass": true,
+        "baselineValue": 0.85
+       },
+       {
+        "index": 1,
+        "value": 1.1,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0.2
+       }
+      ],
+      "ms": 17,
+      "logs": [
+       "super_bouncy_everything: everything super bouncy"
+      ]
+     },
+     "history": [],
+     "ms": 144
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "gt",
+        "field": "restitution",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:ball",
+        "value": 0.8,
+        "value_max": 0
+       },
+       {
+        "at_tick": 0,
+        "cmp": "gt",
+        "field": "restitution",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 0.8,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "super_bouncy_everything",
+      "reason": "",
+      "source": "let ids = [];\nreturn {\n  onInit() {\n    ids = ctx.entities();\n    for (let id of ids) {\n      let e = ctx.entity(id);\n      if (e != null && e.dynamic) {\n        ctx.setRestitution(id, 1.1);\n      }\n    }\n    ctx.log('super bouncy on');\n  },\n  onStep(dt) {\n    for (let id of ids) {\n      let e = ctx.entity(id);\n      if (e != null && e.dynamic && e.restitution < 1.0) {\n        ctx.setRestitution(id, 1.1);\n      }\n    }\n  }\n};",
+      "summary": "Made everything super bouncy.",
+      "writes": [
+       "entity:*.restitution"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 1.1,
+        "pass": true,
+        "baselinePass": true,
+        "baselineValue": 0.85
+       },
+       {
+        "index": 1,
+        "value": 1.1,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0.15
+       }
+      ],
+      "ms": 18,
+      "logs": [
+       "super_bouncy_everything: super bouncy on"
+      ]
+     },
+     "history": [],
+     "ms": 141
+    }
+   ]
+  },
+  {
+   "case": {
+    "id": "spin_cones",
+    "text": "spin the cones",
+    "expect": "install"
+   },
+   "outcomes": [
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 60,
+        "cmp": "gt",
+        "field": "spin",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 60,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:cone_1",
+        "value": 3,
+        "value_max": 0
+       },
+       {
+        "at_tick": 60,
+        "cmp": "gt",
+        "field": "spin",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 60,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:cone_2",
+        "value": 3,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "spin_the_cones",
+      "reason": "",
+      "source": "let ids = [];\nreturn {\n  onInit() {\n    ids = ctx.find(\"cone\");\n    for (const id of ids) {\n      ctx.setAngularVelocity(id, 12);\n    }\n    ctx.log(\"spinning cones\");\n  },\n  onStep(dt) {\n    for (const id of ids) {\n      const e = ctx.entity(id);\n      if (e == null) continue;\n      if (e.held) continue;\n      if (Math.abs(e.angularVelocity) < 8) {\n        ctx.setAngularVelocity(id, 12);\n      }\n    }\n  }\n};",
+      "summary": "Spins both traffic cones continuously.",
+      "writes": [
+       "entity:cone_1.velocity",
+       "entity:cone_2.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 12,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0
+       },
+       {
+        "index": 1,
+        "value": 7.994977951049805,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0
+       }
+      ],
+      "ms": 72,
+      "logs": [
+       "spin_the_cones: spinning cones"
+      ]
+     },
+     "history": [],
+     "ms": 883
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 60,
+        "cmp": "gt",
+        "field": "spin",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 60,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:cone_1",
+        "value": 3,
+        "value_max": 0
+       },
+       {
+        "at_tick": 60,
+        "cmp": "gt",
+        "field": "spin",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 60,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:cone_2",
+        "value": 3,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "spin_the_cones",
+      "reason": "",
+      "source": "const a = \"cone_1\";\nconst b = \"cone_2\";\nfunction spin() {\n  ctx.setAngularVelocity(a, 12);\n  ctx.setAngularVelocity(b, 12);\n}\nreturn {\n  onInit() { spin(); },\n  onStep(dt) { spin(); }\n};",
+      "summary": "Both traffic cones spin continuously.",
+      "writes": [
+       "entity:cone_1.velocity",
+       "entity:cone_2.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 7.535497188568115,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0
+       },
+       {
+        "index": 1,
+        "value": 12,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0
+       }
+      ],
+      "ms": 74,
+      "logs": []
+     },
+     "history": [],
+     "ms": 884
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 30,
+        "cmp": "gt",
+        "field": "spin",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 30,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:cone_1",
+        "value": 2,
+        "value_max": 0
+       },
+       {
+        "at_tick": 30,
+        "cmp": "gt",
+        "field": "spin",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 30,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:cone_2",
+        "value": 2,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "spin_cones",
+      "reason": "Set sustained angular velocity on both cones.",
+      "source": "let ids = [];\nreturn {\n  onInit() {\n    ids = ctx.find(\"cone\");\n    for (let id of ids) { ctx.setAngularVelocity(id, 12); }\n    ctx.log(\"spinning cones\");\n  },\n  onStep(dt) {\n    for (let id of ids) {\n      let e = ctx.entity(id);\n      if (e == null) continue;\n      if (e.held) continue;\n      let w = e.angularVelocity;\n      if (w < 8) ctx.setAngularVelocity(id, 12);\n    }\n  }\n};",
+      "summary": "Both traffic cones spin continuously.",
+      "writes": [
+       "entity:*.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 8.772427558898926,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 3.420420835453797e-9
+       },
+       {
+        "index": 1,
+        "value": 9.869867324829102,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 5.122415824843074e-10
+       }
+      ],
+      "ms": 67,
+      "logs": [
+       "spin_cones: spinning cones"
+      ]
+     },
+     "history": [],
+     "ms": 903
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 10,
+        "cmp": "gt",
+        "field": "spin",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 30,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:cone_1",
+        "value": 5,
+        "value_max": 0
+       },
+       {
+        "at_tick": 10,
+        "cmp": "gt",
+        "field": "spin",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 30,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:cone_2",
+        "value": 5,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "spin_the_cones",
+      "reason": "Set sustained angular velocity on both named cones.",
+      "source": "let SPIN = 12;\nfunction spinAll() {\n  let ids = ctx.find(\"cone\");\n  for (let id of ids) {\n    let e = ctx.entity(id);\n    if (e == null) continue;\n    if (!e.dynamic) continue;\n    ctx.setAngularVelocity(id, SPIN);\n  }\n}\nreturn {\n  onInit() { spinAll(); },\n  onStep(dt) { spinAll(); }\n};",
+      "summary": "Both traffic cones spin continuously.",
+      "writes": [
+       "entity:cone_1.velocity",
+       "entity:cone_2.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 12,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 4.9888299713529705e-8
+       },
+       {
+        "index": 1,
+        "value": 12,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 3.9573247789803645e-8
+       }
+      ],
+      "ms": 66,
+      "logs": []
+     },
+     "history": [],
+     "ms": 889
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 60,
+        "cmp": "gt",
+        "field": "spin",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 60,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:cone_1",
+        "value": 3,
+        "value_max": 0
+       },
+       {
+        "at_tick": 60,
+        "cmp": "gt",
+        "field": "spin",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 60,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:cone_2",
+        "value": 3,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "spin_the_cones",
+      "reason": "",
+      "source": "let ids = [];\nreturn {\n  onInit() {\n    let found = ctx.find('cone');\n    for (let id of found) { ids.push(id); }\n    for (let id of ctx.bindings.named) {\n      let dup = false;\n      for (let q of ids) { if (q === id) { dup = true; } }\n      if (!dup) { ids.push(id); }\n    }\n    for (let id of ids) {\n      let e = ctx.entity(id);\n      if (e != null) { ctx.setAngularVelocity(id, 12); }\n    }\n    ctx.log('spinning cones');\n  },\n  onStep(dt) {\n    for (let id of ids) {\n      let e = ctx.entity(id);\n      if (e == null) { continue; }\n      let w = e.angularVelocity;\n      if (w < 8) { ctx.setAngularVelocity(id, 12); }\n    }\n  }\n};",
+      "summary": "Spins both traffic cones continuously.",
+      "writes": [
+       "entity:cone_1.velocity",
+       "entity:cone_2.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 12,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0
+       },
+       {
+        "index": 1,
+        "value": 7.994977951049805,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0
+       }
+      ],
+      "ms": 74,
+      "logs": [
+       "spin_the_cones: spinning cones"
+      ]
+     },
+     "history": [],
+     "ms": 897
+    }
+   ]
+  },
+  {
+   "case": {
+    "id": "heavy_truck",
+    "text": "make the truck ten times heavier",
+    "expect": "install"
+   },
+   "outcomes": [
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "gt",
+        "field": "mass",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "truck",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 15000,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "truck_ten_times_heavier",
+      "reason": "Set truck mass to 10x its initial 2500 kg on init.",
+      "source": "let base = 0;\nreturn {\n  onInit() {\n    let e = ctx.entity(\"truck\");\n    if (e == null) return;\n    base = e.mass;\n    ctx.setMass(\"truck\", base * 10);\n    ctx.log(\"truck mass x10\");\n  }\n};",
+      "summary": "Made the truck ten times heavier.",
+      "writes": [
+       "entity:truck.mass"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": 25000,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 2500
+       }
+      ],
+      "ms": 16,
+      "logs": [
+       "truck_ten_times_heavier: truck mass x10"
+      ]
+     },
+     "history": [],
+     "ms": 141
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "gt",
+        "field": "mass",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 10000,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "truck_ten_times_heavier",
+      "reason": "",
+      "source": "let id = \"truck\";\nreturn {\n  onInit() {\n    let e = ctx.entity(id);\n    if (e == null) { return; }\n    ctx.setMass(id, e.mass * 10);\n    ctx.log(\"truck mass x10\");\n  }\n};",
+      "summary": "The truck is now ten times heavier.",
+      "writes": [
+       "entity:truck.mass"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": 25000,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 2500
+       }
+      ],
+      "ms": 16,
+      "logs": [
+       "truck_ten_times_heavier: truck mass x10"
+      ]
+     },
+     "history": [],
+     "ms": 136
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "gt",
+        "field": "mass",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 5000,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "truck_ten_times_heavier",
+      "reason": "Set truck mass to 10x its initial 2500kg on init.",
+      "source": "let done = false;\nreturn {\n  onInit() {\n    const e = ctx.entity(\"truck\");\n    if (e == null) return;\n    ctx.setMass(\"truck\", e.mass * 10);\n    done = true;\n    ctx.log(\"truck 10x heavier\");\n  }\n};",
+      "summary": "Made the truck ten times heavier.",
+      "writes": [
+       "entity:truck.mass"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": 25000,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 2500
+       }
+      ],
+      "ms": 16,
+      "logs": [
+       "truck_ten_times_heavier: truck 10x heavier"
+      ]
+     },
+     "history": [],
+     "ms": 138
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "gt",
+        "field": "mass",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 10000,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "truck_ten_times_heavier",
+      "reason": "Set truck mass from 2500 kg to 25000 kg on init.",
+      "source": "let TRUCK = \"truck\";\nreturn {\n  onInit() {\n    ctx.setMass(TRUCK, 25000);\n    ctx.log(\"truck heavier\");\n  }\n};",
+      "summary": "The truck is now ten times heavier.",
+      "writes": [
+       "entity:truck.mass"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": 25000,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 2500
+       }
+      ],
+      "ms": 16,
+      "logs": [
+       "truck_ten_times_heavier: truck heavier"
+      ]
+     },
+     "history": [],
+     "ms": 139
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "gt",
+        "field": "mass",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 10000,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "truck_ten_times_heavier",
+      "reason": "Set truck mass from 2500 kg to 25000 kg (10x) on init.",
+      "source": "let applied = false;\nreturn {\n  onInit() {\n    ctx.setMass(\"truck\", 25000);\n    applied = true;\n    ctx.log(\"truck mass 10x\");\n  }\n};",
+      "summary": "Made the truck ten times heavier.",
+      "writes": [
+       "entity:truck.mass"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": 25000,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 2500
+       }
+      ],
+      "ms": 16,
+      "logs": [
+       "truck_ten_times_heavier: truck mass 10x"
+      ]
+     },
+     "history": [],
+     "ms": 135
+    }
+   ]
+  },
+  {
+   "case": {
+    "id": "launch_all",
+    "text": "launch everything into the air",
+    "expect": "install"
+   },
+   "outcomes": [
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 15,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 30,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": -2,
+        "value_max": 0
+       },
+       {
+        "at_tick": 15,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 30,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:crate",
+        "value": -2,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "launch_everything_up",
+      "reason": "",
+      "source": "let ids = [];\nreturn {\n onInit() {\n  let all = ctx.entities();\n  for (let id of all) {\n   let e = ctx.entity(id);\n   if (e != null && e.dynamic) { ids.push(id); ctx.setVelocity(id, 0, -12); }\n  }\n  ctx.log('launched ' + ids.length + ' bodies');\n },\n onStep(dt) {}\n};",
+      "summary": "Launched all movable objects straight up into the air.",
+      "writes": [
+       "entity:*.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": -9.547531127929688,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 1.233716573345589e-9
+       },
+       {
+        "index": 1,
+        "value": -9.547531127929688,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 1.688024386936604e-9
+       }
+      ],
+      "ms": 64,
+      "logs": [
+       "launch_everything_up: launched 7 bodies"
+      ]
+     },
+     "history": [],
+     "ms": 870
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 20,
+        "cmp": "changed_by_gt",
+        "field": "y",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 30,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": 1,
+        "value_max": 0
+       },
+       {
+        "at_tick": 20,
+        "cmp": "changed_by_gt",
+        "field": "y",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 30,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:ball",
+        "value": 1,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "launch_everything_up",
+      "reason": "",
+      "source": "let done = false;\nreturn {\n  onInit() {\n    const ids = ctx.entities();\n    for (const id of ids) {\n      const e = ctx.entity(id);\n      if (e == null) continue;\n      if (!e.dynamic) continue;\n      const up = 8 + ctx.random() * 3;\n      const side = (ctx.random() - 0.5) * 2;\n      ctx.applyImpulse(id, e.mass * side, -e.mass * up);\n    }\n    done = true;\n    ctx.log('launch!');\n  }\n};",
+      "summary": "Launched everything into the air.",
+      "writes": [
+       "entity:*.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 1.8973848819732666,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 4.76516580581665
+       },
+       {
+        "index": 1,
+        "value": 3.483257293701172,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 6.290062427520752
+       }
+      ],
+      "ms": 66,
+      "logs": [
+       "launch_everything_up: launch!"
+      ]
+     },
+     "history": [],
+     "ms": 883
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 5,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 10,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:ball",
+        "value": -1,
+        "value_max": 0
+       },
+       {
+        "at_tick": 5,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 10,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:crate",
+        "value": -1,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "launch_everything_up",
+      "reason": "",
+      "source": "let launched = false;\nreturn {\n  onInit() {\n    const ids = ctx.entities();\n    for (const id of ids) {\n      const e = ctx.entity(id);\n      if (e == null) { continue; }\n      if (!e.dynamic) { continue; }\n      ctx.applyImpulse(id, 0, 0 - e.mass * 9);\n    }\n    launched = true;\n    ctx.log('launch!');\n  }\n};",
+      "summary": "Launches every movable object upward.",
+      "writes": [
+       "entity:*.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": -8.182510375976562,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": -0.0038831005804240704
+       },
+       {
+        "index": 1,
+        "value": -8.182510375976562,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 1.9545103313589607e-9
+       }
+      ],
+      "ms": 59,
+      "logs": [
+       "launch_everything_up: launch!"
+      ]
+     },
+     "history": [],
+     "ms": 875
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 10,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 30,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:crate",
+        "value": -2,
+        "value_max": 0
+       },
+       {
+        "at_tick": 10,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 30,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": -2,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "launch_everything_up",
+      "reason": "",
+      "source": "let ids = [];\nreturn {\n  onInit() {\n    const all = ctx.entities();\n    for (const id of all) {\n      const e = ctx.entity(id);\n      if (e == null) { continue; }\n      if (!e.dynamic) { continue; }\n      ids.push(e.id);\n    }\n    for (const id of ids) {\n      ctx.setVelocity(id, 0, -12);\n    }\n    ctx.log('launched ' + ids.length + ' bodies');\n  }\n};",
+      "summary": "Launched every movable object straight up into the air.",
+      "writes": [
+       "entity:*.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": -10.365020751953125,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": -1.818650341434136e-9
+       },
+       {
+        "index": 1,
+        "value": -10.365020751953125,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": -1.4271902548657067e-9
+       }
+      ],
+      "ms": 64,
+      "logs": [
+       "launch_everything_up: launched 7 bodies"
+      ]
+     },
+     "history": [],
+     "ms": 870
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:truck",
+        "value": -5,
+        "value_max": 0
+       },
+       {
+        "at_tick": 0,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "entity:ball",
+        "value": -5,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "launch_everything_up",
+      "reason": "",
+      "source": "let launched = false;\nreturn {\n  onInit() {\n    if (launched) return;\n    launched = true;\n    const ids = ctx.entities();\n    for (const id of ids) {\n      const e = ctx.entity(id);\n      if (e == null) continue;\n      if (!e.dynamic) continue;\n      ctx.setVelocity(id, e.vx, -12);\n    }\n    ctx.log('launched everything');\n  }\n};",
+      "summary": "Launches every dynamic object upward.",
+      "writes": [
+       "entity:*.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": -12,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0
+       },
+       {
+        "index": 1,
+        "value": -12,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0
+       }
+      ],
+      "ms": 16,
+      "logs": [
+       "launch_everything_up: launched everything"
+      ]
+     },
+     "history": [],
+     "ms": 147
+    }
+   ]
+  },
+  {
+   "case": {
+    "id": "sideways",
+    "text": "make gravity pull everything to the right",
+    "expect": "install"
+   },
+   "outcomes": [
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 0,
+        "cmp": "gt",
+        "field": "gravity_x",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 5,
+        "value_max": 0
+       },
+       {
+        "at_tick": 0,
+        "cmp": "lt",
+        "field": "gravity_y",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "init",
+         "n": 0,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 5,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "gravity_right",
+      "reason": "",
+      "source": "return { onInit() { ctx.setGravity(9.81, 0); } };",
+      "summary": "Gravity now pulls everything to the right.",
+      "writes": [
+       "world.gravity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 9.81,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0
+       },
+       {
+        "index": 1,
+        "value": 0,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 9.81
+       }
+      ],
+      "ms": 15,
+      "logs": []
+     },
+     "history": [],
+     "ms": 138
+    },
+    {
+     "kind": "failed",
+     "attempts": 3,
+     "error": "assertion 2: entity:cone_1 vx at tick 60 was -0.20, expected > 3 (60 ticks)",
+     "history": [
+      {
+       "stage": "assertions",
+       "error": "assertion 2: entity:cone_1 vx at tick 60 was -0.73, expected > 3 (60 ticks)"
+      },
+      {
+       "stage": "assertions",
+       "error": "assertion 2: entity:cone_1 vx at tick 60 was -0.72, expected > 3 (60 ticks)"
+      },
+      {
+       "stage": "assertions",
+       "error": "assertion 2: entity:cone_1 vx at tick 60 was -0.20, expected > 3 (60 ticks)"
+      }
+     ],
+     "ms": 2645
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 5,
+        "cmp": "gt",
+        "field": "gravity_x",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 10,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 5,
+        "value_max": 0
+       },
+       {
+        "at_tick": 5,
+        "cmp": "lt",
+        "field": "gravity_y",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 10,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 1,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "gravity_right",
+      "reason": "",
+      "source": "let g = 9.81;\nreturn {\n  onInit() { ctx.setGravity(g, 0); ctx.log('gravity pulled right'); },\n  onStep(dt) { ctx.setGravity(g, 0); }\n};",
+      "summary": "Gravity now pulls everything to the right.",
+      "writes": [
+       "world.gravity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 9.81,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0
+       },
+       {
+        "index": 1,
+        "value": 0,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 9.81
+       }
+      ],
+      "ms": 58,
+      "logs": [
+       "gravity_right: gravity pulled right"
+      ]
+     },
+     "history": [],
+     "ms": 869
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 10,
+        "cmp": "gt",
+        "field": "gravity_x",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 10,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 5,
+        "value_max": 0
+       },
+       {
+        "at_tick": 10,
+        "cmp": "lt",
+        "field": "gravity_y",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 10,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 1,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "gravity_right",
+      "reason": "Sets world gravity to pull toward +x instead of down.",
+      "source": "let g = 9.81;\nreturn {\n  onInit() { ctx.setGravity(g, 0); ctx.log('gravity right'); },\n  onStep(dt) { ctx.setGravity(g, 0); }\n};",
+      "summary": "Gravity now pulls everything to the right.",
+      "writes": [
+       "world.gravity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 9.81,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0
+       },
+       {
+        "index": 1,
+        "value": 0,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 9.81
+       }
+      ],
+      "ms": 57,
+      "logs": [
+       "gravity_right: gravity right"
+      ]
+     },
+     "history": [],
+     "ms": 882
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 10,
+        "cmp": "gt",
+        "field": "gravity_x",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 60,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 5,
+        "value_max": 0
+       },
+       {
+        "at_tick": 10,
+        "cmp": "lt",
+        "field": "gravity_y",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "",
+         "kind": "ticks",
+         "n": 60,
+         "other": "",
+         "rel_speed_mps": 0
+        },
+        "target": "world",
+        "value": 5,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "gravity_right",
+      "reason": "",
+      "source": "let g = 9.81;\nreturn {\n  onInit() { ctx.setGravity(g, 0); ctx.log('gravity right'); },\n  onStep(dt) { ctx.setGravity(g, 0); }\n};",
+      "summary": "Gravity now pulls everything to the right.",
+      "writes": [
+       "world.gravity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 2 assertions",
+      "results": [
+       {
+        "index": 0,
+        "value": 9.81,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 0
+       },
+       {
+        "index": 1,
+        "value": 0,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": 9.81
+       }
+      ],
+      "ms": 74,
+      "logs": [
+       "gravity_right: gravity right"
+      ]
+     },
+     "history": [],
+     "ms": 949
+    }
+   ]
+  },
+  {
+   "case": {
+    "id": "ball_hit_bounce",
+    "text": "when the ball hits the ground, make it jump back up twice as high",
+    "expect": "install"
+   },
+   "outcomes": [
+    {
+     "kind": "passed",
+     "attempts": 2,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 15,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "ball",
+         "kind": "collision",
+         "n": 30,
+         "other": "ground",
+         "rel_speed_mps": 5
+        },
+        "target": "entity:ball",
+        "value": -5,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "ball_double_bounce",
+      "reason": "Apply upward velocity in onStep after impact so physics resolution does not overwrite it; vy stays strongly upward giving ~2x height.",
+      "source": "const BALL = \"ball\";\nlet boost = 0;\nreturn {\n  onInit() {\n    ctx.setRestitution(BALL, 0);\n  },\n  onCollision(e) {\n    let isBall = (e.a === BALL) || (e.b === BALL);\n    if (!isBall) return;\n    let other = (e.a === BALL) ? e.b : e.a;\n    if (other !== \"ground\") return;\n    let v = e.speed * 1.42;\n    if (!(v > 2)) v = 2;\n    boost = v;\n    ctx.log(\"boost\", v);\n  },\n  onStep(dt) {\n    if (boost <= 0) return;\n    let b = ctx.entity(BALL);\n    if (b == null) return;\n    if (b.vy > -boost) {\n      ctx.setVelocity(BALL, b.vx, -boost);\n    } else {\n      boost = 0;\n    }\n  }\n};",
+      "summary": "The ball will bounce back about twice as high when it hits the ground.",
+      "writes": [
+       "entity:ball.velocity",
+       "entity:ball.restitution"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": -7.168670654296875,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": -0.3271653354167938
+       }
+      ],
+      "ms": 62,
+      "logs": [
+       "ball_double_bounce: boost 7.3321724700927735"
+      ]
+     },
+     "history": [
+      {
+       "stage": "assertions",
+       "error": "assertion 1: entity:ball vy at tick 1 was 5.16, expected < -5 (ball hits ground at 5 m/s)"
+      }
+     ],
+     "ms": 1063
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 10,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "ball",
+         "kind": "collision",
+         "n": 20,
+         "other": "ground",
+         "rel_speed_mps": 5
+        },
+        "target": "entity:ball",
+        "value": -3,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "ball_double_bounce",
+      "reason": "",
+      "source": "let ballId = null;\nreturn {\n  onInit() {\n    let ids = ctx.find(\"ball\");\n    for (let id of ids) { ballId = id; }\n    if (ballId == null) {\n      let all = ctx.entities();\n      for (let id of all) { ballId = id; }\n    }\n  },\n  onCollision(e) {\n    if (ballId == null) { return; }\n    let hitBall = (e.a === ballId || e.b === ballId);\n    if (!hitBall) { return; }\n    let other = e.a === ballId ? e.b : e.a;\n    if (other !== \"ground\") { return; }\n    let v = ctx.entity(ballId);\n    if (v == null) { return; }\n    let up = e.speed * 1.5;\n    if (!(up > 2)) { up = 2; }\n    ctx.setVelocity(ballId, v.vx, -up);\n    ctx.log(\"boost\", up);\n  }\n};",
+      "summary": "The ball bounces off the ground with extra boost to jump about twice as high.",
+      "writes": [
+       "entity:ball.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": -6.437239170074463,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": -1.1446647644042969
+       }
+      ],
+      "ms": 60,
+      "logs": [
+       "ball_double_bounce: boost 7.74525260925293"
+      ]
+     },
+     "history": [],
+     "ms": 887
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 10,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "ball",
+         "kind": "collision",
+         "n": 0,
+         "other": "ground",
+         "rel_speed_mps": 6
+        },
+        "target": "entity:ball",
+        "value": -6,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "ball_super_bounce",
+      "reason": "On ground impact kick ball upward at sqrt(2) x impact speed so it rebounds to twice the drop height.",
+      "source": "let BOOST = 1.42;\nreturn {\n  onCollision(e) {\n    let isBall = (e.a === \"ball\" || e.b === \"ball\");\n    if (!isBall) { return; }\n    let hitGround = (e.a === \"ground\" || e.b === \"ground\");\n    if (!hitGround) { return; }\n    let b = ctx.entity(\"ball\");\n    if (b == null) { return; }\n    let s = e.speed;\n    if (!(s > 0.5)) { return; }\n    ctx.setVelocity(\"ball\", b.vx, 0 - s * BOOST);\n    ctx.log(\"super bounce\", s);\n  }\n};",
+      "summary": "The ball now jumps back twice as high when it hits the ground.",
+      "writes": [
+       "entity:ball.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": -7.444175720214844,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": -1.6196646690368652
+       }
+      ],
+      "ms": 59,
+      "logs": [
+       "ball_super_bounce: super bounce 6.163501739501953"
+      ]
+     },
+     "history": [],
+     "ms": 877
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 5,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "ball",
+         "kind": "collision",
+         "n": 0,
+         "other": "ground",
+         "rel_speed_mps": 5
+        },
+        "target": "entity:ball",
+        "value": -5,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "ball_super_bounce",
+      "reason": "On ground impact boost ball upward velocity to ~1.5x impact speed for ~2x height.",
+      "source": "let ballId = null;\nreturn {\n onInit() {\n  let ids = ctx.bindings.named;\n  if (ids.length > 0) { ballId = ids[0]; } else { let f = ctx.find(\"ball\"); if (f.length > 0) { ballId = f[0]; } }\n },\n onCollision(e) {\n  if (ballId == null) { return; }\n  let isBall = (e.a === ballId || e.b === ballId);\n  if (!isBall) { return; }\n  let other = (e.a === ballId) ? e.b : e.a;\n  if (other !== \"ground\") { return; }\n  if (!(e.speed > 0.5)) { return; }\n  let b = ctx.entity(ballId);\n  if (b == null) { return; }\n  let vx = b.vx;\n  let vyUp = 0 - e.speed * 1.5;\n  ctx.setVelocity(ballId, vx, vyUp);\n }\n};",
+      "summary": "The ball now jumps back up twice as high when it hits the ground.",
+      "writes": [
+       "entity:ball.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": -7.2547478675842285,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": -1.9621639251708984
+       }
+      ],
+      "ms": 59,
+      "logs": []
+     },
+     "history": [],
+     "ms": 888
+    },
+    {
+     "kind": "passed",
+     "attempts": 1,
+     "error": "",
+     "plugin": {
+      "assertions": [
+       {
+        "at_tick": 10,
+        "cmp": "lt",
+        "field": "vy",
+        "scenario": {
+         "drag_x_m": 0,
+         "drag_y_m": 0,
+         "entity": "ball",
+         "kind": "collision",
+         "n": 30,
+         "other": "ground",
+         "rel_speed_mps": 5
+        },
+        "target": "entity:ball",
+        "value": -5,
+        "value_max": 0
+       }
+      ],
+      "feasible": true,
+      "name": "ball_double_bounce",
+      "reason": "on ground impact set ball upward velocity to sqrt(2) times impact speed so it rebounds to twice the drop height",
+      "source": "let ballId = \"ball\";\nreturn {\n  onInit() {\n    let f = ctx.find(\"rubber_ball\");\n    for (let id of f) { ballId = id; }\n    if (ctx.bindings.named.length > 0) { ballId = ctx.bindings.named[0]; }\n  },\n  onCollision(e) {\n    let isBall = (e.a === ballId || e.b === ballId);\n    let hitsGround = (e.a === \"ground\" || e.b === \"ground\");\n    if (isBall && hitsGround) {\n      let b = ctx.entity(ballId);\n      if (b == null) { return; }\n      let up = e.speed * 1.45;\n      if (up < 3) { up = 3; }\n      ctx.setVelocity(ballId, b.vx, -up);\n      ctx.log(\"double bounce\", up);\n    }\n  }\n};",
+      "summary": "The ball will spring back to twice its drop height whenever it hits the ground.",
+      "writes": [
+       "entity:ball.velocity"
+      ]
+     },
+     "verify": {
+      "ok": true,
+      "stage": null,
+      "message": "passed 1 assertion",
+      "results": [
+       {
+        "index": 0,
+        "value": -6.1790642738342285,
+        "pass": true,
+        "baselinePass": false,
+        "baselineValue": -1.1446647644042969
+       }
+      ],
+      "ms": 60,
+      "logs": [
+       "ball_double_bounce: double bounce 7.487077522277832"
+      ]
+     },
+     "history": [],
+     "ms": 885
+    }
+   ]
+  },
+  {
+   "case": {
+    "id": "marimba",
+    "text": "make the bottle sound like a marimba",
+    "expect": "decline"
+   },
+   "outcomes": [
+    {
+     "kind": "declined",
+     "attempts": 1,
+     "error": "not possible with this API: Sound/appearance changes like marimba tone are not supported by the physics ctx API (only gravity, time_scale, mass, restitution, friction, damping, body_type, velocity).",
+     "plugin": {
+      "assertions": [],
+      "feasible": false,
+      "name": "unsupportable_request",
+      "reason": "Sound/appearance changes like marimba tone are not supported by the physics ctx API (only gravity, time_scale, mass, restitution, friction, damping, body_type, velocity).",
+      "source": "",
+      "summary": "Can't make sounds with physics rules.",
+      "writes": []
+     },
+     "history": [],
+     "ms": 4
+    },
+    {
+     "kind": "declined",
+     "attempts": 1,
+     "error": "not possible with this API: Sound/audio changes are not supported by the ctx API, which only controls physics properties like gravity, mass, friction, damping, body type, and velocity. Cannot make bottle sound like a marimba.",
+     "plugin": {
+      "assertions": [],
+      "feasible": false,
+      "name": "",
+      "reason": "Sound/audio changes are not supported by the ctx API, which only controls physics properties like gravity, mass, friction, damping, body type, and velocity. Cannot make bottle sound like a marimba.",
+      "source": "",
+      "summary": "",
+      "writes": []
+     },
+     "history": [],
+     "ms": 1
+    },
+    {
+     "kind": "declined",
+     "attempts": 1,
+     "error": "not possible with this API: Sound/audio changes are not supported by the ctx API (no audio fields, only physics properties like gravity, mass, velocity, etc.), so the bottle cannot be made to sound like a marimba.",
+     "plugin": {
+      "assertions": [],
+      "feasible": false,
+      "name": "",
+      "reason": "Sound/audio changes are not supported by the ctx API (no audio fields, only physics properties like gravity, mass, velocity, etc.), so the bottle cannot be made to sound like a marimba.",
+      "source": "",
+      "summary": "",
+      "writes": []
+     },
+     "history": [],
+     "ms": 1
+    },
+    {
+     "kind": "declined",
+     "attempts": 1,
+     "error": "not possible with this API: Sound / audio timbre cannot be changed with the physics ctx API (no audio, only gravity, time scale, mass, restitution, friction, damping, body type, velocity).",
+     "plugin": {
+      "assertions": [],
+      "feasible": false,
+      "name": "",
+      "reason": "Sound / audio timbre cannot be changed with the physics ctx API (no audio, only gravity, time scale, mass, restitution, friction, damping, body type, velocity).",
+      "source": "",
+      "summary": "",
+      "writes": []
+     },
+     "history": [],
+     "ms": 1
+    },
+    {
+     "kind": "declined",
+     "attempts": 1,
+     "error": "not possible with this API: Sound/marimba audio cannot be produced with the ctx physics API (no audio support).",
+     "plugin": {
+      "assertions": [],
+      "feasible": false,
+      "name": "",
+      "reason": "Sound/marimba audio cannot be produced with the ctx physics API (no audio support).",
+      "source": "",
+      "summary": "",
+      "writes": []
+     },
+     "history": [],
+     "ms": 1
+    }
+   ]
+  },
+  {
+   "case": {
+    "id": "paint_sky",
+    "text": "paint the sky purple",
+    "expect": "decline"
+   },
+   "outcomes": [
+    {
+     "kind": "declined",
+     "attempts": 1,
+     "error": "not possible with this API: Color/sky changes are not supported by the ctx physics API (no color, background, or rendering hooks).",
+     "plugin": {
+      "assertions": [],
+      "feasible": false,
+      "name": "paint_sky_purple",
+      "reason": "Color/sky changes are not supported by the ctx physics API (no color, background, or rendering hooks).",
+      "source": "",
+      "summary": "Cannot paint the sky purple in this physics sandbox.",
+      "writes": []
+     },
+     "history": [],
+     "ms": 0
+    },
+    {
+     "kind": "declined",
+     "attempts": 1,
+     "error": "not possible with this API: Color/sky changes are not supported by the ctx API (only gravity, time scale, mass, restitution, friction, damping, body type, velocity).",
+     "plugin": {
+      "assertions": [],
+      "feasible": false,
+      "name": "",
+      "reason": "Color/sky changes are not supported by the ctx API (only gravity, time scale, mass, restitution, friction, damping, body type, velocity).",
+      "source": "",
+      "summary": "",
+      "writes": []
+     },
+     "history": [],
+     "ms": 1
+    },
+    {
+     "kind": "declined",
+     "attempts": 1,
+     "error": "not possible with this API: Command asks to change sky color, which has no ctx API (no color, sky, or camera controls) and cannot be expressed as physics.",
+     "plugin": {
+      "assertions": [],
+      "feasible": false,
+      "name": "",
+      "reason": "Command asks to change sky color, which has no ctx API (no color, sky, or camera controls) and cannot be expressed as physics.",
+      "source": "",
+      "summary": "",
+      "writes": []
+     },
+     "history": [],
+     "ms": 1
+    },
+    {
+     "kind": "declined",
+     "attempts": 1,
+     "error": "not possible with this API: Sky color / painting is visual only: ctx has no color, sky, camera or new-object API, so 'paint the sky purple' cannot be done.",
+     "plugin": {
+      "assertions": [],
+      "feasible": false,
+      "name": "",
+      "reason": "Sky color / painting is visual only: ctx has no color, sky, camera or new-object API, so 'paint the sky purple' cannot be done.",
+      "source": "",
+      "summary": "",
+      "writes": []
+     },
+     "history": [],
+     "ms": 0
+    },
+    {
+     "kind": "declined",
+     "attempts": 1,
+     "error": "not possible with this API: painting the sky purple requires color / background rendering which the ctx API does not expose (only physics fields).",
+     "plugin": {
+      "assertions": [],
+      "feasible": false,
+      "name": "",
+      "reason": "painting the sky purple requires color / background rendering which the ctx API does not expose (only physics fields).",
+      "source": "",
+      "summary": "",
+      "writes": []
+     },
+     "history": [],
+     "ms": 1
+    }
+   ]
+  }
+ ]
+}

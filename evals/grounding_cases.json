@@ -1,0 +1,13 @@
+{
+  "description": "PhysicsGrounder eval (eng review D11): every exported golden object is re-grounded by Muse Spark from the golden frame and its outline, then checked. class: the label must contain one of these words; mass_kg: inclusive range; body_type: expected. Bar: 90% of objects pass every check.",
+  "cases": [
+    { "fork": "desk_01/0", "object": "obj_1", "class": ["cactus", "plant", "pot"], "mass_kg": [0.1, 2.5], "body_type": "dynamic" },
+    { "fork": "desk_01/0", "object": "obj_2", "class": ["book"], "mass_kg": [0.15, 2.0], "body_type": "dynamic" },
+    { "fork": "desk_01/0", "object": "obj_3", "class": ["book"], "mass_kg": [0.15, 2.0], "body_type": "dynamic" },
+    { "fork": "desk_01/0", "object": "obj_4", "class": ["book"], "mass_kg": [0.15, 2.0], "body_type": "dynamic" },
+    { "fork": "desk_01/0", "object": "obj_5", "class": ["stapler"], "mass_kg": [0.08, 1.0], "body_type": "dynamic" },
+    { "fork": "desk_01/0", "object": "obj_6", "class": ["mug", "cup"], "mass_kg": [0.15, 0.8], "body_type": "dynamic" },
+    { "fork": "desk_01/0", "object": "obj_7", "class": ["phone", "smartphone"], "mass_kg": [0.1, 0.4], "body_type": "dynamic" },
+    { "fork": "desk_01/0", "object": "obj_8", "class": ["pencil", "pen", "holder", "cup"], "mass_kg": [0.05, 1.2], "body_type": "dynamic" }
+  ]
+}

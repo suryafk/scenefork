@@ -24,6 +24,20 @@ export interface CodegenRequest {
   bindings: Bindings;
   attempt: number;
   previous: { plugin: PluginDoc; error: string } | null;
+  /** Evals only: which sample of the same command (part of the backend's cache key). */
+  variant?: number;
+}
+
+/** What one generate/verify/repair run ended with. */
+export interface BuildOutcome {
+  kind: 'passed' | 'declined' | 'failed' | 'stale' | 'no_scene';
+  /** Model calls made (1 + repairs). */
+  attempts: number;
+  error: string;
+  plugin?: PluginDoc;
+  verify?: VerifyResult;
+  /** Why each failed attempt failed (verifier stage + message). */
+  history: { stage: string; error: string }[];
 }
 
 export type CodegenReply =
@@ -171,29 +185,67 @@ export class RuleController {
     const id = `cmd_${++this.n}`;
     const log = (stage: LogStage, detail: string, attempt: number) =>
       this.ports.log({ id, text, stage, detail, attempt, ms: Math.round(performance.now() - t0) });
-    const snap = this.ports.physics.latestSnapshot;
-    if (!snap) {
+    const out = await this.build(text, bindings, { id, log });
+    if (out.kind === 'stale' || this.scene !== sceneAtStart) return; // the scene changed meanwhile
+    if (out.kind === 'no_scene') {
       this.ports.toast('The scene is still loading.');
       return;
     }
+    if (out.kind === 'passed') {
+      const plugin = out.plugin!;
+      this.ports.physics.loadRule({
+        kind: 'plugin',
+        id: `${id}_${plugin.name || 'plugin'}`,
+        name: plugin.name || 'plugin',
+        summary: plugin.summary,
+        writes: plugin.writes,
+        source: plugin.source,
+        bindings,
+      });
+      log('installed', `${plugin.summary || plugin.name} (${out.verify!.message}, ${out.verify!.ms} ms in the verifier)`, out.attempts - 1);
+      return;
+    }
+    // Design: Failure rule. The HUD always shows why.
+    if (fallback && fallback.confidence >= FALLBACK_MIN_CONFIDENCE) {
+      this.applyPreset(fallback.preset, bindings, text, t0, 'fallback');
+      log('failed', out.error, MAX_REPAIRS);
+      this.ports.toast(`Couldn't build that rule, applied ${fallback.preset.name} instead.`);
+    } else {
+      log('failed', out.error, MAX_REPAIRS);
+      this.ports.toast("Couldn't build that rule.");
+    }
+  }
+
+  /**
+   * Generate, verify and repair (up to MAX_REPAIRS) without installing anything. The live path
+   * installs what passes; the mutator eval calls this directly (`variant` picks the eval sample).
+   */
+  async build(
+    text: string,
+    bindings: Bindings,
+    opts: { id?: string; variant?: number; log?: (stage: LogStage, detail: string, attempt: number) => void } = {},
+  ): Promise<BuildOutcome> {
+    const sceneAtStart = this.scene;
+    const id = opts.id ?? `cmd_${++this.n}`;
+    const log = opts.log ?? (() => {});
+    const snap = this.ports.physics.latestSnapshot;
+    if (!snap) return { kind: 'no_scene', attempts: 0, error: 'the scene is still loading', history: [] };
     const scene = summarize(snap);
+    const history: BuildOutcome['history'] = [];
     let previous: CodegenRequest['previous'] = null;
     let error = '';
     for (let attempt = 0; attempt <= MAX_REPAIRS; attempt++) {
       log(attempt === 0 ? 'writing' : 'repairing', attempt === 0 ? 'asking Muse Spark for a plugin' : `fixing: ${error}`, attempt);
-      const reply = await this.ports.codegen({ text, scene, bindings, attempt, previous });
-      if (this.scene !== sceneAtStart) return; // the scene changed while the model was writing
-      if (!reply.ok) {
-        error = reply.message;
-        break;
-      }
+      const reply = await this.ports.codegen({ text, scene, bindings, attempt, previous, ...(opts.variant ? { variant: opts.variant } : {}) });
+      if (this.scene !== sceneAtStart) return { kind: 'stale', attempts: attempt + 1, error: 'scene changed', history };
+      if (!reply.ok) return { kind: 'failed', attempts: attempt + 1, error: reply.message, history };
       const plugin = reply.plugin;
       if (!plugin.feasible) {
-        error = `not possible with this API: ${plugin.reason || 'no reason given'}`;
-        break;
+        return { kind: 'declined', attempts: attempt + 1, error: `not possible with this API: ${plugin.reason || 'no reason given'}`, plugin, history };
       }
       if (reply.problems.length) {
         error = `the plugin didn't match the schema: ${reply.problems.join('; ')}`;
+        history.push({ stage: 'static', error });
       } else {
         log('testing', `verifying ${plugin.assertions.length} assertion${plugin.assertions.length === 1 ? '' : 's'}`, attempt);
         const result = await this.ports.verify({
@@ -203,32 +255,13 @@ export class RuleController {
           ruleId: `${id}_${plugin.name || 'plugin'}`,
           seed: seedFor(text),
         });
-        if (this.scene !== sceneAtStart) return;
-        if (result.ok) {
-          this.ports.physics.loadRule({
-            kind: 'plugin',
-            id: `${id}_${plugin.name || 'plugin'}`,
-            name: plugin.name || 'plugin',
-            summary: plugin.summary,
-            writes: plugin.writes,
-            source: plugin.source,
-            bindings,
-          });
-          log('installed', `${plugin.summary || plugin.name} (${result.message}, ${result.ms} ms in the verifier)`, attempt);
-          return;
-        }
+        if (this.scene !== sceneAtStart) return { kind: 'stale', attempts: attempt + 1, error: 'scene changed', history };
+        if (result.ok) return { kind: 'passed', attempts: attempt + 1, error: '', plugin, verify: result, history };
         error = result.message;
+        history.push({ stage: result.stage ?? 'runtime', error });
       }
       previous = { plugin, error };
     }
-    // Design: Failure rule. The HUD always shows why.
-    if (fallback && fallback.confidence >= FALLBACK_MIN_CONFIDENCE) {
-      this.applyPreset(fallback.preset, bindings, text, t0, 'fallback');
-      log('failed', error, MAX_REPAIRS);
-      this.ports.toast(`Couldn't build that rule, applied ${fallback.preset.name} instead.`);
-    } else {
-      log('failed', error, MAX_REPAIRS);
-      this.ports.toast("Couldn't build that rule.");
-    }
+    return { kind: 'failed', attempts: MAX_REPAIRS + 1, error, history };
   }
 }

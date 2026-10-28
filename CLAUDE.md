@@ -16,6 +16,7 @@ Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude
 - The fake backend's MutatorAgent knows four commands (slingshot, spin, sideways gravity, heavy); anything else comes back as "not possible". Real codegen needs `SCENEFORK_ADAPTERS=live`.
 - Playwright E2E (golden clip, live fork, presets, codegen, demo key): `pnpm --dir frontend e2e`. It starts its own fake-model backend on 8001 and frontend on 5174, and uses the installed Google Chrome (no Playwright browser download).
 - Muse Voice realtime probe (live, about $0.0003): `cd backend && uv run python scripts/probe_voice.py`.
+- Evals (live models; see `evals/README.md`): `pnpm --dir frontend eval:mutator -- --runs 5` with the backend started live, and `cd backend && SCENEFORK_ADAPTERS=live uv run python scripts/eval_grounding.py`. Re-runs replay from the dev cache for free.
 - Golden clips: `cd backend && uv run python scripts/export_golden.py --help`. Output goes to `frontend/public/golden/` (format: `shared/golden.schema.json`). Runbook and shot list: `docs/demo-runbook.md`.
 
 ## Meta Model API credit budget

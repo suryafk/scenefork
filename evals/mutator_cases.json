@@ -1,0 +1,15 @@
+{
+  "description": "MutatorAgent eval (eng review D11): each command runs N times against live Muse Spark through the real verifier and repair loop, on the demo street (frontend/src/scene/syntheticScene.ts). expect: install = a plugin passes within 2 repairs; decline = nothing gets installed (the API can't do it). `pointer` simulates the user pointing at an entity while saying \"this\". Bar: 4 of 5 runs per command.",
+  "cases": [
+    { "id": "slingshot", "text": "slingshot this", "pointer": "truck", "expect": "install" },
+    { "id": "moon", "text": "make the gravity feel like on the moon", "expect": "install" },
+    { "id": "bouncy_all", "text": "make everything super bouncy", "expect": "install" },
+    { "id": "spin_cones", "text": "spin the cones", "expect": "install" },
+    { "id": "heavy_truck", "text": "make the truck ten times heavier", "expect": "install" },
+    { "id": "launch_all", "text": "launch everything into the air", "expect": "install" },
+    { "id": "sideways", "text": "make gravity pull everything to the right", "expect": "install" },
+    { "id": "ball_hit_bounce", "text": "when the ball hits the ground, make it jump back up twice as high", "expect": "install" },
+    { "id": "marimba", "text": "make the bottle sound like a marimba", "expect": "decline" },
+    { "id": "paint_sky", "text": "paint the sky purple", "expect": "decline" }
+  ]
+}
