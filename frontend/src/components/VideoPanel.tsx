@@ -96,15 +96,39 @@ export function VideoPanel({ backendLive, status, onForkVideo, onForkDemoStreet,
               if (!v || !v.videoWidth) return setProblem("This video hasn't loaded yet.");
               v.pause();
               if (golden) {
-                const f = StaticGoldenSource.nearestFork(golden, v.currentTime);
-                v.currentTime = f.t_fork;
-                return onForkGolden(golden, f.manifest);
+                // Near a prepared moment: instant, from static files. Anywhere else: this exact
+                // frame, freed live by the models like any other video.
+                const f = StaticGoldenSource.forkFor(golden, v.currentTime);
+                if (f) {
+                  v.currentTime = f.t_fork;
+                  return onForkGolden(golden, f.manifest);
+                }
+                return onForkVideo(v, `golden_${golden.clip_id}`);
               }
               onForkVideo(v, hash);
             }}
           >
             Fork this frame
           </button>
+          {golden && (
+            <div className="moments">
+              <span>Prepared moments (instant):</span>
+              {golden.forks.map((f) => (
+                <button
+                  key={f.fork_index}
+                  onClick={() => {
+                    const v = videoRef.current;
+                    if (!v) return;
+                    v.pause();
+                    v.currentTime = f.t_fork;
+                  }}
+                >
+                  {f.t_fork.toFixed(1)} s
+                </button>
+              ))}
+              <span className="hint">Any other moment forks live with the models.</span>
+            </div>
+          )}
         </div>
       )}
     </section>

@@ -45,6 +45,8 @@ export interface GoldenClip {
 }
 
 const BASE = `${import.meta.env.BASE_URL}golden/`;
+/** A pause this close to a prepared moment uses it; anywhere else forks live with the models. */
+export const SNAP_WINDOW_S = 0.5;
 
 async function bitmap(url: string): Promise<ImageBitmap> {
   const r = await fetch(url);
@@ -69,6 +71,11 @@ export const StaticGoldenSource = {
   /** The fork point nearest to a playback time (design step 1: Fork snaps to it). */
   nearestFork(clip: GoldenClip, t: number): GoldenClip['forks'][number] {
     return clip.forks.reduce((best, f) => (Math.abs(f.t_fork - t) < Math.abs(best.t_fork - t) ? f : best));
+  },
+  /** The prepared fork point to use for a pause at `t`, or null when none is close: fork live. */
+  forkFor(clip: GoldenClip, t: number): GoldenClip['forks'][number] | null {
+    const f = this.nearestFork(clip, t);
+    return Math.abs(f.t_fork - t) <= SNAP_WINDOW_S ? f : null;
   },
 };
 
