@@ -39,7 +39,7 @@ export function App() {
   const modeRef = useRef<Mode>('demo');
   const audioRef = useRef(new ProceduralAudio());
   const [mode, setMode] = useState<Mode>('demo');
-  const [stats, setStats] = useState<HudStats>({ fps: 0, stepMs: 0, bodies: 0, held: null, impacts: 0, spend: null, lastFreeMs: null, verifierKills: 0, restarts: 0 });
+  const [stats, setStats] = useState<HudStats>({ fps: 0, stepMs: 0, bodies: 0, held: null, impacts: 0, spend: null, lastFreeMs: null, verifierKills: 0, restarts: 0, ppm: null });
   const [xray, setXray] = useState(false);
   const [muted, setMuted] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -259,6 +259,7 @@ export function App() {
         lastFreeMs,
         verifierKills: verifier.kills,
         restarts: physics.restarts,
+        ppm: physics.latestSnapshot?.manifest.pixels_per_meter ?? null,
       });
     }, 250);
 

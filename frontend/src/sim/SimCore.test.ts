@@ -303,3 +303,53 @@ describe('runtime entities (click-to-free)', () => {
     sim.free();
   });
 });
+
+describe('live forks: scale and floor (OV6)', () => {
+  const live = (): SceneManifest => ({ ...scene([]), auto_floor: true });
+
+  it('lands thrown objects on the ground the lowest freed object stood on', () => {
+    const sim = new SimCore(live());
+    expect(sim.floorLinePx).toBe(720);
+    sim.addEntity(entity('crate', box(600, 400, 80, 80), 15)); // base at 480
+    expect(sim.floorLinePx).toBe(481);
+    sim.addEntity(entity('can', box(300, 300, 30, 50), 0.3)); // base at 350: higher, floor stays
+    expect(sim.floorLinePx).toBe(481);
+    const p0 = sim.pose('can');
+    sim.grab(p0.x, p0.y);
+    for (let i = 0; i < 30; i++) {
+      sim.drag(p0.x, p0.y - 5 * i);
+      sim.step();
+    }
+    sim.release();
+    run(sim, 240);
+    // Off its own floor for good, it falls to the crate's ground line, not the frame's bottom.
+    expect(sim.pose('can').y).toBeGreaterThan(440);
+    expect(sim.pose('can').y).toBeLessThan(470);
+    // The floor line survives a snapshot restore.
+    expect(SimCore.restore(sim.snapshot()).floorLinePx).toBe(481);
+  });
+
+  it('rescales a running world without moving anything on screen', () => {
+    const sim = new SimCore(live());
+    sim.addEntity(entity('crate', box(600, 400, 80, 80), 15));
+    run(sim, 30);
+    const before = sim.pose('crate');
+    const big = SimCore.restore(SimCore.rescaleSnapshot(sim.snapshot(), 400));
+    expect(big.ppm).toBe(400);
+    expect(big.pose('crate').x).toBeCloseTo(before.x, 2);
+    expect(big.pose('crate').y).toBeCloseTo(before.y, 2);
+    run(big, 60);
+    expect(Math.abs(big.pose('crate').y - before.y)).toBeLessThan(3); // still resting on its floor
+  });
+
+  it('keeps grounding that was still waiting when the world is rebuilt', () => {
+    const sim = new SimCore(live());
+    sim.addEntity(entity('crate', box(600, 400, 80, 80), 15));
+    sim.grab(640, 440); // held: the patch waits
+    sim.patch('crate', { label: 'wooden crate', body_type: 'dynamic', mass_kg: 40, restitution: 0.2, friction: 0.7, acoustic_material: 'wood', approx_height_m: 0.5 });
+    sim.step();
+    const restored = SimCore.restore(sim.snapshot());
+    run(restored, 30);
+    expect(restored.labelOf('crate')).toBe('wooden crate');
+  });
+});

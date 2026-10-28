@@ -93,7 +93,7 @@ export class PhysicsClient {
 
   private send(msg: MainToWorker): void {
     this.worker.postMessage(msg);
-    const replayable = msg.type === 'add' || msg.type === 'patch' || msg.type === 'unload' || msg.type === 'reset_rules' || (msg.type === 'rule' && msg.def.kind === 'preset');
+    const replayable = msg.type === 'add' || msg.type === 'patch' || msg.type === 'rescale' || msg.type === 'unload' || msg.type === 'reset_rules' || (msg.type === 'rule' && msg.def.kind === 'preset');
     if (replayable) this.sinceSnapshot.push(msg);
   }
 
@@ -158,6 +158,11 @@ export class PhysicsClient {
 
   patch(id: string, grounding: Grounding): void {
     this.send({ type: 'patch', id, grounding });
+  }
+
+  /** OV6: rebuild the running world at a new pixels-per-meter (live forks, after grounding). */
+  rescale(ppm: number): void {
+    this.send({ type: 'rescale', ppm });
   }
 
   loadRule(def: RuleDef): void {

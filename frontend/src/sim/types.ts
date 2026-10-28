@@ -48,6 +48,11 @@ export interface SceneManifest {
   ground_material: AcousticMaterial;
   /** Where thrown objects land, in frame pixels (default: the frame's bottom edge). */
   floor_y_px?: number;
+  /**
+   * Live forks: the floor follows the lowest base among freed objects (the ground they stood on),
+   * instead of the frame's bottom edge.
+   */
+  auto_floor?: boolean;
   entities: EntitySpec[];
 }
 
@@ -88,6 +93,8 @@ export type MainToWorker =
   | { type: 'restore'; snapshot: SimSnapshot }
   | { type: 'add'; spec: EntitySpec }
   | { type: 'patch'; id: string; grounding: Grounding }
+  /** OV6: a live fork learned its real scale from grounding; rebuild at the new px/m. */
+  | { type: 'rescale'; ppm: number }
   | { type: 'pointer'; phase: 'down' | 'move' | 'up'; x: number; y: number; seq: number }
   | { type: 'rule'; def: RuleDef }
   | { type: 'unload'; id: string }

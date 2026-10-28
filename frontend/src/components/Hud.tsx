@@ -13,6 +13,8 @@ export interface HudStats {
   /** Verifier workers killed for going silent, and live workers restarted by the watchdog. */
   verifierKills: number;
   restarts: number;
+  /** Pixels per meter of the current scene (OV6: live forks derive it from grounding). */
+  ppm: number | null;
 }
 
 interface Props {
@@ -95,7 +97,9 @@ export function Hud({ stats, xray, muted, mode, rules, log, onToggleXray, onTogg
             <dd>{stats.fps} fps</dd>
             <dt>Physics step</dt>
             <dd>{stats.stepMs.toFixed(2)} ms (worker)</dd>
-            <dt>Bodies</dt>
+            <dt>Scale</dt>
+          <dd>{stats.ppm ? `${stats.ppm} px/m` : '—'}</dd>
+          <dt>Bodies</dt>
             <dd>{stats.bodies}</dd>
             <dt>Holding</dt>
             <dd>{stats.held ?? 'nothing'}</dd>

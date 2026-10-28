@@ -129,6 +129,8 @@ export interface SimSnapshot {
   bodies: { id: string; x: number; y: number; rot: number; vx: number; vy: number; w: number; floorActive: boolean }[];
   /** Presets survive a restart; plugins don't (design: Runtime watchdog). */
   presets: RuleDef[];
+  /** Grounding still waiting for its body to come to rest. */
+  pending?: [string, Grounding][];
 }
 
 export interface EntityView {
@@ -183,6 +185,9 @@ export class SimCore {
   private readonly lastImpact = new Map<string, number>();
   private readonly preStepVel = new Map<string, { x: number; y: number }>();
   private readonly ground: RAPIER.RigidBody;
+  private groundFloor!: RAPIER.Collider;
+  /** Live forks: the current floor line in pixels, following the lowest freed object. */
+  private autoFloorPx: number | null = null;
   private held: Held | null = null;
   private stepCount = 0;
   /** Grounding results waiting for their body to come to rest (design step 5). */
@@ -254,13 +259,28 @@ export class SimCore {
     }
     sim.world.propagateModifiedBodyPositionsToColliders();
     for (const p of snap.presets) sim.loadRule(p);
+    for (const [id, g] of snap.pending ?? []) sim.patch(id, g);
     sim.ruleEvents = [];
     return sim;
   }
 
+  /** The same scene at a new scale: pixel positions stay put, meters change (OV6). */
+  static rescaleSnapshot(snap: SimSnapshot, ppm: number): SimSnapshot {
+    const k = snap.manifest.pixels_per_meter / ppm;
+    return {
+      ...snap,
+      manifest: { ...snap.manifest, pixels_per_meter: ppm },
+      bodies: snap.bodies.map((b) => ({ ...b, x: b.x * k, y: b.y * k, vx: b.vx * k, vy: b.vy * k })),
+    };
+  }
+
   snapshot(): SimSnapshot {
     return {
-      manifest: { ...this.manifest, entities: this.ids.map((id) => this.recs.get(id)!.spec) },
+      manifest: {
+        ...this.manifest,
+        entities: this.ids.map((id) => this.recs.get(id)!.spec),
+        ...(this.autoFloorPx !== null ? { floor_y_px: this.autoFloorPx } : {}),
+      },
       bodies: this.ids.map((id) => {
         const rec = this.recs.get(id)!;
         const t = rec.body.translation();
@@ -268,6 +288,7 @@ export class SimCore {
         return { id, x: t.x, y: t.y, rot: rec.body.rotation(), vx: v.x, vy: v.y, w: rec.body.angvel(), floorActive: rec.floorActive };
       }),
       presets: this.rules.filter((r) => r.def.kind === 'preset').map((r) => r.def),
+      pending: [...this.pendingPatches],
     };
   }
 
@@ -284,6 +305,11 @@ export class SimCore {
       }
       this.rebalanceMasses();
       this.buildOwnFloor(rec);
+      if (this.manifest.auto_floor) {
+        // Thrown objects land on the ground the lowest freed object stood on.
+        const base = Math.round(rec.floorY * this.ppm);
+        if (this.autoFloorPx === null || base > this.autoFloorPx) this.setFloorLine(base);
+      }
       // Objects already freed that sit on this one (a pot freed before the book under it) now
       // keep their floor only while it stays underneath, whatever order they were freed in.
       for (const other of this.recs.values()) {
@@ -348,12 +374,14 @@ export class SimCore {
     const add = (desc: RAPIER.ColliderDesc) => {
       const c = this.world.createCollider(desc.setFriction(0.8).setRestitution(0.15), this.ground);
       this.colliderOwner.set(c.handle, GROUND);
+      return c;
     };
     // Global floor: top face on the scene's floor line (golden clips can set one, e.g. a desk
     // surface), else the frame's bottom edge. Walls reach well above the frame so thrown
     // objects come back down instead of leaving the scene.
     const floorY = (this.manifest.floor_y_px ?? this.manifest.resolution.height) / this.ppm;
-    add(RAPIER.ColliderDesc.cuboid(w / 2 + 2, 1).setTranslation(w / 2, floorY + 1));
+    this.groundFloor = add(RAPIER.ColliderDesc.cuboid(w / 2 + 2, 1).setTranslation(w / 2, floorY + 1));
+    if (this.manifest.auto_floor) this.autoFloorPx = this.manifest.floor_y_px ?? null;
     add(RAPIER.ColliderDesc.cuboid(1, h * 3).setTranslation(-1, 0));
     add(RAPIER.ColliderDesc.cuboid(1, h * 3).setTranslation(w + 1, 0));
   }
@@ -424,6 +452,18 @@ export class SimCore {
     this.stack.setBase(entityKey(spec.id, 'damping'), 0);
     this.stack.setBase(entityKey(spec.id, 'body_type'), spec.body_type);
     return rec;
+  }
+
+  /** Move the global floor so its top face sits at a frame-pixel y. */
+  setFloorLine(yPx: number): void {
+    this.autoFloorPx = yPx;
+    const w = this.manifest.resolution.width / this.ppm;
+    this.groundFloor.setTranslationWrtParent({ x: w / 2, y: yPx / this.ppm + 1 });
+    for (const rec of this.recs.values()) if (rec.dynamic) rec.body.wakeUp();
+  }
+
+  get floorLinePx(): number {
+    return this.autoFloorPx ?? this.manifest.floor_y_px ?? this.manifest.resolution.height;
   }
 
   /** Just under the middle of a body's lowest point: where a supporter would be. */

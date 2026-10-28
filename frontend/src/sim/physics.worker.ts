@@ -13,6 +13,20 @@ let timer: ReturnType<typeof setInterval> | null = null;
 let last = 0;
 let acc = 0;
 let frames = 0;
+/** A rescale waiting for the user to let go (rebuilding the world mid-drag would drop the grab). */
+let pendingPpm: number | null = null;
+
+function applyRescale(): void {
+  if (!sim || pendingPpm === null || sim.heldId !== null) return;
+  const ppm = pendingPpm;
+  pendingPpm = null;
+  // Same bodies, poses and presets at the new scale; the renderer's pixels don't move.
+  attach(SimCore.restore(SimCore.rescaleSnapshot(sim.snapshot(), ppm)));
+  post({ type: 'restored', ids: sim!.ids });
+  post({ type: 'snapshot', snapshot: sim!.snapshot() });
+  flushRules();
+}
+
 /** Rule whose hook start we already reported this tick, so a plugin with onStep posts once. */
 let reported: string | null = null;
 
@@ -60,6 +74,7 @@ function tick(): void {
   post({ type: 'frame', buf, held: sim.heldId, step_ms: (performance.now() - t0) / steps, collisions }, [buf.buffer]);
   flushRules();
   if (++frames % SNAPSHOT_EVERY === 0) post({ type: 'snapshot', snapshot: sim.snapshot() });
+  applyRescale();
 }
 
 self.onmessage = async (e: MessageEvent<MainToWorker>) => {
@@ -67,6 +82,7 @@ self.onmessage = async (e: MessageEvent<MainToWorker>) => {
   try {
     if (msg.type === 'init') {
       await ready;
+      pendingPpm = null;
       attach(new SimCore(msg.manifest));
       post({ type: 'ready', ids: sim!.ids, geometry: sim!.geometry() });
       post({ type: 'snapshot', snapshot: sim!.snapshot() });
@@ -81,6 +97,9 @@ self.onmessage = async (e: MessageEvent<MainToWorker>) => {
       post({ type: 'added', id: msg.spec.id, geometry: sim.addEntity(msg.spec) });
     } else if (msg.type === 'patch') {
       sim.patch(msg.id, msg.grounding);
+    } else if (msg.type === 'rescale') {
+      pendingPpm = msg.ppm;
+      applyRescale();
     } else if (msg.type === 'pointer') {
       if (msg.phase === 'down') post({ type: 'grab', seq: msg.seq, id: sim.grab(msg.x, msg.y), x: msg.x, y: msg.y });
       else if (msg.phase === 'move') sim.drag(msg.x, msg.y);

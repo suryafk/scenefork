@@ -46,8 +46,32 @@ async function toJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
   throw new Error('frame too large to upload');
 }
 
+export const DEFAULT_PPM = 100;
+const MIN_PPM = 30;
+const MAX_PPM = 600;
+/** Rescale only for a real difference (30%+), and stop after this many grounded objects. */
+const RESCALE_RATIO = 1.3;
+const SCALE_SAMPLES = 3;
+
 export function emptyManifest(width: number, height: number): SceneManifest {
-  return { scene_id: 'live_fork', resolution: { width, height }, pixels_per_meter: 100, gravity_mps2: 9.81, ground_material: 'concrete', entities: [] };
+  return {
+    scene_id: 'live_fork',
+    resolution: { width, height },
+    pixels_per_meter: DEFAULT_PPM,
+    gravity_mps2: 9.81,
+    ground_material: 'concrete',
+    entities: [],
+    auto_floor: true,
+  };
+}
+
+/** OV6: median(pixel height / real height) over grounded dynamic objects, clamped to 30-600. */
+export function scaleFromGroundings(samples: { heightPx: number; heightM: number }[]): number | null {
+  const ratios = samples.filter((s) => s.heightM > 0.05 && s.heightPx > 4).map((s) => s.heightPx / s.heightM).sort((a, b) => a - b);
+  if (!ratios.length) return null;
+  const mid = ratios.length >> 1;
+  const median = ratios.length % 2 ? ratios[mid] : (ratios[mid - 1] + ratios[mid]) / 2;
+  return Math.round(Math.min(MAX_PPM, Math.max(MIN_PPM, median)));
 }
 
 export class ForkController {
@@ -59,6 +83,8 @@ export class ForkController {
   private replay: { x: number; y: number; ring: string }[] = [];
   private readonly textures = new Map<string, { texture: Texture; entity: FreedEntity; z: number }>();
   private plateVersion = 0;
+  private ppm = DEFAULT_PPM;
+  private readonly scaleSamples: { heightPx: number; heightM: number }[] = [];
   private n = 0;
   private clipHash = '';
   private tFork = 0;
@@ -200,11 +226,14 @@ export class ForkController {
         else if (m.reason === 'error') this.events.toast('The model call failed. Try again.');
         return;
       }
-      case 'grounded':
-        if (!this.textures.has(m.entity_id)) return;
+      case 'grounded': {
+        const t = this.textures.get(m.entity_id);
+        if (!t) return;
         this.physics.patch(m.entity_id, m.grounding);
         this.events.label(m.entity_id, m.grounding.label);
+        if (m.grounding.body_type === 'dynamic') this.updateScale(t.entity.sprite_bbox.h, m.grounding.approx_height_m);
         return;
+      }
       case 'plate':
         if (m.fork_id !== this.forkId || m.version <= this.plateVersion) return;
         this.plateVersion = m.version;
@@ -234,6 +263,24 @@ export class ForkController {
       case 'hello':
         return;
     }
+  }
+
+  /**
+   * OV6: learn the clip's scale from the first few grounded objects. Locked once enough samples
+   * are in or a plugin is active, since a rescale rebuilds the world and drops plugins.
+   */
+  private updateScale(heightPx: number, heightM: number): void {
+    if (this.scaleSamples.length >= SCALE_SAMPLES || this.physics.rules.some((r) => r.kind === 'plugin')) return;
+    this.scaleSamples.push({ heightPx, heightM });
+    const ppm = scaleFromGroundings(this.scaleSamples);
+    if (ppm === null || Math.max(ppm / this.ppm, this.ppm / ppm) < RESCALE_RATIO) return;
+    trace('[fork] rescale', this.ppm, '->', ppm, 'px/m');
+    this.ppm = ppm;
+    this.physics.rescale(ppm);
+  }
+
+  get pixelsPerMeter(): number {
+    return this.ppm;
   }
 
   /** Step 5: sprite in, hole blurred, body released with label defaults. */
@@ -278,6 +325,8 @@ export class ForkController {
     this.textures.clear();
     this.forkId = null;
     this.plateVersion = 0;
+    this.ppm = DEFAULT_PPM;
+    this.scaleSamples.length = 0;
     this.active = false;
     this.renderer.setPreparing(false);
   }
