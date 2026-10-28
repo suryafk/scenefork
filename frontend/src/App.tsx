@@ -85,6 +85,7 @@ export function App() {
         labels.clear();
         geometry.forEach((g) => labels.set(g.id, g.label));
         bodies = ids.length;
+        trace('[physics] ready', ids.length);
         setRules([]);
         if (modeRef.current === 'demo') renderer.setScene(syntheticManifest, ids, geometry);
       },
@@ -284,9 +285,22 @@ export function App() {
     audioRef.current.muted = muted;
   }, [muted]);
 
+  /** The user switched scenes: drop the old scene's log, transcript and any rule still being built. */
+  const clearRules = () => {
+    engineRef.current?.rules.newScene();
+    setLog([]);
+    setTranscript('');
+  };
+
+  const reloadDemo = () => {
+    clearRules();
+    engineRef.current?.physics.load(syntheticManifest);
+  };
+
   const backToDemo = () => {
     const e = engineRef.current;
     if (!e) return;
+    clearRules();
     modeRef.current = 'demo';
     setMode('demo');
     e.fork.reset();
@@ -298,6 +312,7 @@ export function App() {
   const startFork = (frame: HTMLCanvasElement, clipHash: string, tFork: number) => {
     const e = engineRef.current;
     if (!e) return;
+    clearRules();
     modeRef.current = 'fork';
     setMode('fork');
     e.golden.reset();
@@ -307,6 +322,7 @@ export function App() {
   const startGolden = (clip: GoldenClip, manifestPath: string) => {
     const e = engineRef.current;
     if (!e) return;
+    clearRules();
     modeRef.current = 'golden';
     setMode('golden');
     e.fork.reset();
@@ -334,7 +350,7 @@ export function App() {
         if (!e.repeat) engineRef.current?.voice.start();
       } else if (e.key === 'x' || e.key === 'X') setXray((v) => !v);
       else if (e.key === 'm' || e.key === 'M') setMuted((v) => !v);
-      else if ((e.key === 'r' || e.key === 'R') && modeRef.current === 'demo') engineRef.current?.physics.load(syntheticManifest);
+      else if ((e.key === 'r' || e.key === 'R') && modeRef.current === 'demo') reloadDemo();
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space') engineRef.current?.voice.stop();
@@ -380,7 +396,7 @@ export function App() {
           log={log}
           onToggleXray={() => setXray((v) => !v)}
           onToggleMute={() => setMuted((v) => !v)}
-          onReset={() => (mode === 'demo' ? engineRef.current?.physics.load(syntheticManifest) : backToDemo())}
+          onReset={() => (mode === 'demo' ? reloadDemo() : backToDemo())}
           onRemoveRule={(id) => engineRef.current?.physics.unloadRule(id)}
           onResetRules={() => engineRef.current?.physics.resetRules()}
         />

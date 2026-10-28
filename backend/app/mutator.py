@@ -8,6 +8,7 @@ one API definition.
 """
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -129,6 +130,12 @@ def _target(req: CodegenRequest) -> str | None:
     return ids[0] if ids else None
 
 
+def _label(req: CodegenRequest, entity_id: str) -> str:
+    """How a summary names an entity: its label ("smartphone"), not its id ("obj_7")."""
+    label = next((e.get("label", "") for e in req.scene.get("entities", []) if e["id"] == entity_id), "")
+    return (label or entity_id).replace("_", " ")
+
+
 class FakeMutator:
     """Deterministic templates for a few demo commands: exercises the whole loop with no credits."""
 
@@ -137,6 +144,8 @@ class FakeMutator:
         target = _target(req)
         if target is None:
             return CodegenResult(_infeasible("there's nothing in the scene to apply it to"), [])
+        name = _label(req, target)
+        slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:30] or target
         if "sling" in t or "launch" in t:
             source = (
                 f"let start = null;\nconst target = '{target}';\nreturn {{\n"
@@ -145,13 +154,13 @@ class FakeMutator:
                 "    const k = 12 * e.mass;\n    ctx.applyImpulse(id, (start.x - e.x) * k, (start.y - e.y) * k);\n    start = null;\n  },\n};"
             )
             doc = {
-                "feasible": True, "reason": "", "name": f"slingshot_{target}", "summary": f"Pull the {target} back and let go: it flies the other way.",
+                "feasible": True, "reason": "", "name": f"slingshot_{slug}", "summary": f"Pull the {name} back and let go: it flies the other way.",
                 "writes": [f"entity:{target}.velocity"], "source": source,
                 "assertions": [_check(_scenario("dragRelease", target, dx=-1), f"entity:{target}", "vx", "gt", 3, 3)],
             }
         elif "spin" in t:
             doc = {
-                "feasible": True, "reason": "", "name": f"spin_{target}", "summary": f"The {target} spins in place.",
+                "feasible": True, "reason": "", "name": f"spin_{slug}", "summary": f"The {name} spins in place.",
                 "writes": [f"entity:{target}.velocity"],
                 "source": f"const target = '{target}';\nreturn {{ onStep() {{ ctx.setAngularVelocity(target, 6); }} }};",
                 "assertions": [_check(_scenario("ticks", n=30), f"entity:{target}", "spin", "gt", 3, 30)],
@@ -164,7 +173,7 @@ class FakeMutator:
             }
         elif "heavy" in t:
             doc = {
-                "feasible": True, "reason": "", "name": f"heavy_{target}", "summary": f"The {target} weighs ten times more.",
+                "feasible": True, "reason": "", "name": f"heavy_{slug}", "summary": f"The {name} weighs ten times more.",
                 "writes": [f"entity:{target}.mass"],
                 "source": f"const target = '{target}';\nreturn {{ onInit() {{ const e = ctx.entity(target); ctx.setMass(target, e.mass * 10); }} }};",
                 "assertions": [_check(_scenario("init"), f"entity:{target}", "mass", "gt", next((e["mass_kg"] for e in req.scene["entities"] if e["id"] == target), 1) * 5, 0)],

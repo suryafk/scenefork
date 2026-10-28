@@ -54,9 +54,11 @@ export function closestPreset(text: string): { preset: Preset; confidence: numbe
  * timestamps from Web Speech); "the truck" maps by label, before any pointer data.
  */
 export function resolveBindings(text: string, entities: EntityRef[], dwell: [string, number][]): Bindings {
-  const ws = new Set(words(text).filter((w) => w.length >= 3 && !STOP.has(w)).map(stem));
+  const said = words(text).filter((w) => w.length >= 3 && !STOP.has(w)).map(stem);
+  // "phone" names a "smartphone", "cup" a "cup": words of 4+ letters may sit inside a label word.
+  const matches = (labelWord: string) => said.some((w) => w === labelWord || (w.length >= 4 && labelWord.includes(w)));
   const named = entities
-    .filter((e) => words(e.label).some((w) => w.length >= 3 && !STOP.has(w) && ws.has(stem(w))))
+    .filter((e) => words(e.label).some((w) => w.length >= 3 && !STOP.has(w) && matches(stem(w))))
     .map((e) => e.id);
   const deictic = normalize(text).match(DEICTIC)?.length ?? 0;
   const ranked = [...dwell].sort((a, b) => b[1] - a[1]).map(([id]) => id).filter((id) => !named.includes(id));

@@ -39,6 +39,13 @@ describe('router', () => {
     expect(resolveBindings('spin the cones', ENTITIES, []).named).toEqual(['cone_1', 'cone_2']);
   });
 
+  it('matches a shorter spoken name inside a longer label', () => {
+    const desk = [{ id: 'obj_7', label: 'smartphone' }, { id: 'obj_6', label: 'blue ceramic mug' }, { id: 'obj_1', label: 'small potted cactus' }];
+    expect(resolveBindings('slingshot the phone', desk, []).named).toEqual(['obj_7']);
+    expect(resolveBindings('spin the mug', desk, []).named).toEqual(['obj_6']);
+    expect(resolveBindings('make the pot heavy', desk, []).named).toEqual([]); // 3 letters: whole words only
+  });
+
   it('finds the closest preset for the failure rule', () => {
     expect(closestPreset('make everything float around in space')).toMatchObject({ preset: { id: 'zero_gravity' }, confidence: 0.8 });
     expect(closestPreset('paint the truck blue')).toBeNull();
@@ -97,6 +104,24 @@ describe('RuleController', () => {
     expect(h.requests[1].previous?.error).toMatch(/^assertion 1: entity:truck vx at tick 3 was/);
     expect(h.requests[1].previous?.plugin.source).toBe(broken.source);
     expect(h.logs.map((l) => l.stage)).toEqual(['writing', 'testing', 'repairing', 'testing', 'installed']);
+  });
+
+  it('drops a rule still being built when the scene changes', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const h = harness(() => ({ ok: true, plugin: SLINGSHOT, problems: [], ms: 10 }));
+    const slow = new RuleController({
+      ...(h.controller as unknown as { ports: ConstructorParameters<typeof RuleController>[0] }).ports,
+      codegen: async () => {
+        await gate;
+        return { ok: true, plugin: SLINGSHOT, problems: [], ms: 10 };
+      },
+    });
+    const pending = slow.command('slingshot the truck', []);
+    slow.newScene(); // the user switched clips while Muse Spark was writing
+    release();
+    await pending;
+    expect(h.loaded).toEqual([]);
   });
 
   it('gives up after two repairs and falls back to the closest preset', async () => {

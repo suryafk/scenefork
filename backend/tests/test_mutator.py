@@ -105,3 +105,9 @@ def test_long_reasons_are_trimmed_not_sent_back_for_repair(tmp_path):
     m = LiveMutator(api, SpendLedger(tmp_path / "s", 1.0), DevCache(tmp_path / "c", False), "minimal")
     result = run(m.generate(req("paint the truck blue")))
     assert result.problems == [] and len(result.plugin["reason"]) == 200
+
+
+def test_fake_summaries_name_the_object_not_its_id():
+    scene = {**SCENE, "entities": [{**SCENE["entities"][0], "id": "obj_7", "label": "smartphone"}]}
+    result = run(FakeMutator().generate(CodegenRequest("slingshot the phone", scene, {"thisId": None, "thatId": None, "named": ["obj_7"]}, 0, None)))
+    assert result.plugin["summary"].startswith("Pull the smartphone back") and result.plugin["name"] == "slingshot_smartphone"

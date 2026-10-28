@@ -88,8 +88,16 @@ export class RuleController {
   private busy = false;
   /** Interim preset hits per utterance, so the final transcript doesn't apply them twice. */
   private readonly interimApplied = new Map<number, string>();
+  /** Bumped on every scene load: a rule still being built for the old scene is dropped. */
+  private scene = 0;
 
   constructor(private readonly ports: RulePorts) {}
+
+  /** A new scene loaded (demo, live fork or golden clip): its rules start empty. */
+  newScene(): void {
+    this.scene++;
+    this.interimApplied.clear();
+  }
 
   get building(): boolean {
     return this.busy;
@@ -159,6 +167,7 @@ export class RuleController {
   }
 
   private async codegen(text: string, bindings: Bindings, fallback: { preset: Preset; confidence: number } | null, t0: number): Promise<void> {
+    const sceneAtStart = this.scene;
     const id = `cmd_${++this.n}`;
     const log = (stage: LogStage, detail: string, attempt: number) =>
       this.ports.log({ id, text, stage, detail, attempt, ms: Math.round(performance.now() - t0) });
@@ -173,6 +182,7 @@ export class RuleController {
     for (let attempt = 0; attempt <= MAX_REPAIRS; attempt++) {
       log(attempt === 0 ? 'writing' : 'repairing', attempt === 0 ? 'asking Muse Spark for a plugin' : `fixing: ${error}`, attempt);
       const reply = await this.ports.codegen({ text, scene, bindings, attempt, previous });
+      if (this.scene !== sceneAtStart) return; // the scene changed while the model was writing
       if (!reply.ok) {
         error = reply.message;
         break;
@@ -193,6 +203,7 @@ export class RuleController {
           ruleId: `${id}_${plugin.name || 'plugin'}`,
           seed: seedFor(text),
         });
+        if (this.scene !== sceneAtStart) return;
         if (result.ok) {
           this.ports.physics.loadRule({
             kind: 'plugin',

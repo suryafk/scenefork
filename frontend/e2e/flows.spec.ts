@@ -8,6 +8,7 @@ const FRAME_W = 1280;
 async function open(page: Page, key = E2E_KEY) {
   await page.goto(`/#k=${key}`);
   await page.waitForFunction(() => (window as unknown as { __sfDebug?: unknown }).__sfDebug !== undefined);
+  await traced(page, /\[physics\] ready/);
 }
 
 /** Wait until some trace line matches. */
@@ -78,7 +79,7 @@ test('codegen: the fake mutator writes a plugin that passes the verifier and ins
   await page.getByLabel('Type a physics rule').fill('slingshot the truck');
   await page.getByRole('button', { name: 'Apply' }).click();
   await expect(page.locator('.mutator-log')).toContainText('installed', { timeout: 15_000 });
-  await expect(page.locator('.rules')).toContainText('slingshot_truck');
+  await expect(page.locator('.rules')).toContainText('slingshot_red_delivery_truck');
 });
 
 test('codegen: an unknown command fails gracefully', async ({ page }) => {
