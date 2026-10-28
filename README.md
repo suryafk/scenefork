@@ -48,7 +48,7 @@ flowchart LR
 
 A spoken rule never goes straight into the live simulation:
 
-1. **Presets** ("moon gravity", "make this bouncy", "slow motion", "reset") match locally, in under 5 ms, with no model call. "This" and "that" resolve to whatever the pointer rested on while you spoke.
+1. **Presets** ("zero gravity", "Mars", "Jupiter", "make this bouncy", "slow motion", "reset") match locally, in under 5 ms, with no model call. Zero gravity lifts the whole scene off its floors to float; Earth, Moon, Mars and Jupiter use their real surface gravity, and each has a one-click button too. "This" and "that" resolve to whatever the pointer rested on while you spoke.
 2. **Anything else** goes to Muse Spark, which returns a plugin plus 1-4 assertions, for example "after dragging the truck 1 m left and releasing, its x-velocity at tick 3 is above 3 m/s".
 3. A **verifier worker** replays each assertion in a copy of the current scene. It also runs the same checks *without* the plugin, and rejects the plugin if they pass anyway (a no-op). It fails on NaN, speeds over 200 m/s, and writes to fields the plugin didn't declare.
 4. On failure, the exact failed assertion goes back to the model, for up to **2 repairs**. If it still fails, the closest preset applies, or nothing does, and the HUD says why.

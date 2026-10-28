@@ -12,6 +12,7 @@ import {
   type Bindings,
   type FieldKey,
   type FieldValue,
+  type FloatNudge,
   type PresetWrite,
   type RuleDef,
   type RuleEvent,
@@ -51,6 +52,8 @@ const GROUND = 'ground';
 const SLOW_HOOK_MS = 4;
 const SLOW_HOOK_STEPS = 3;
 const MAX_LOG_LINES = 50;
+/** The ceiling turns on when downward gravity is weaker than this (zero, reversed, sideways). */
+const CEILING_BELOW_GRAVITY = 1;
 
 /**
  * Fraction of the velocity error the drag corrects per step. The impulse is
@@ -186,6 +189,8 @@ export class SimCore {
   private readonly preStepVel = new Map<string, { x: number; y: number }>();
   private readonly ground: RAPIER.RigidBody;
   private groundFloor!: RAPIER.Collider;
+  /** The frame's top edge: on only when gravity isn't pulling down, so floating things stay in view. */
+  private ceiling!: RAPIER.Collider;
   /** Live forks: the current floor line in pixels, following the lowest freed object. */
   private autoFloorPx: number | null = null;
   private held: Held | null = null;
@@ -384,6 +389,8 @@ export class SimCore {
     if (this.manifest.auto_floor) this.autoFloorPx = this.manifest.floor_y_px ?? null;
     add(RAPIER.ColliderDesc.cuboid(1, h * 3).setTranslation(-1, 0));
     add(RAPIER.ColliderDesc.cuboid(1, h * 3).setTranslation(w + 1, 0));
+    this.ceiling = add(RAPIER.ColliderDesc.cuboid(w / 2 + 2, 1).setTranslation(w / 2, -1));
+    this.ceiling.setEnabled(this.manifest.gravity_mps2 < CEILING_BELOW_GRAVITY);
   }
 
   private buildEntity(spec: EntitySpec): BodyRec {
@@ -726,6 +733,7 @@ export class SimCore {
     this.rules.push(rule);
     if (def.kind === 'preset') {
       for (const [key, value] of this.presetWrites(def)) this.write(rule, key, value);
+      if (def.float) this.floatOff(this.presetTargets(def), def.float);
       this.ruleEvents.push({ kind: 'loaded', rule: def.id, name: def.name, detail: '' });
       return true;
     }
@@ -775,6 +783,23 @@ export class SimCore {
   /** Effective value of a stackable field (rule entry, else base). */
   fieldValue(key: FieldKey): FieldValue | undefined {
     return this.stack.effective(key);
+  }
+
+  /**
+   * Zero gravity: lift everything off its floor with a gentle random drift and spin. Speeds are in
+   * on-screen pixels per second, so a close-up desk and a street float at the same pace.
+   */
+  private floatOff(ids: string[], n: FloatNudge): void {
+    const k = 1 / this.ppm;
+    for (const id of ids) {
+      const rec = this.recs.get(id);
+      if (!rec?.dynamic || this.held?.rec === rec) continue;
+      rec.floorActive = false;
+      const v = rec.body.linvel();
+      const up = (n.up_pxps[0] + this.random() * (n.up_pxps[1] - n.up_pxps[0])) * k;
+      rec.body.setLinvel({ x: v.x + (this.random() * 2 - 1) * n.side_pxps * k, y: v.y - up }, true);
+      rec.body.setAngvel(rec.body.angvel() + (this.random() * 2 - 1) * n.spin_radps, true);
+    }
   }
 
   private presetTargets(def: Extract<RuleDef, { kind: 'preset' }>): string[] {
@@ -841,6 +866,7 @@ export class SimCore {
     if (key === 'world.gravity') {
       const [x, y] = v as [number, number];
       this.world.gravity = { x, y };
+      this.ceiling.setEnabled(y < CEILING_BELOW_GRAVITY);
       for (const rec of this.recs.values()) if (rec.dynamic) rec.body.wakeUp();
       return;
     }

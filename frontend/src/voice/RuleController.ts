@@ -6,7 +6,7 @@
 //                                   ▲                      └─ fail ─► repair (≤ 2), then
 //                                   └──── error + plugin ──┘          closest preset or nothing
 import type { SimSnapshot } from '../sim/SimCore';
-import { NO_BINDINGS, type Bindings, type PluginDoc, type Preset, type RuleDef } from '../sim/rules';
+import { NO_BINDINGS, PRESETS, type Bindings, type PluginDoc, type Preset, type RuleDef } from '../sim/rules';
 import type { VerifyRequest, VerifyResult } from '../sim/verifier';
 import { FALLBACK_MIN_CONFIDENCE, boundIds, matchPreset, route, type EntityRef } from './router';
 
@@ -131,6 +131,7 @@ export class RuleController {
       presetId: preset.id,
       writes: preset.writes,
       targets: touchesEntities && bound.length ? bound : null,
+      ...(preset.float ? { float: preset.float } : {}),
     };
   }
 
@@ -139,6 +140,17 @@ export class RuleController {
     this.ports.physics.loadRule(def);
     const on = def.kind === 'preset' && def.targets ? ` on ${def.targets.join(', ')}` : '';
     this.ports.log({ id: `cmd_${++this.n}`, text, stage, detail: `${preset.name}${on}`, attempt: 0, ms: Math.round(performance.now() - t0) });
+  }
+
+  /** A preset by id, from a button (Earth, Moon, Mars, Jupiter, Zero-G). */
+  preset(id: string): void {
+    const preset = PRESETS.find((p) => p.id === id);
+    if (!preset) return;
+    if (preset.action === 'reset') {
+      this.ports.physics.resetRules();
+      return;
+    }
+    this.applyPreset(preset, NO_BINDINGS, preset.name, performance.now());
   }
 
   /** Interim transcript: apply a preset the moment it's recognizable (target < 300 ms). */

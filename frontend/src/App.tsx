@@ -35,6 +35,13 @@ interface Engine {
   voice: { start(): void; stop(): void; dispose(): void };
 }
 
+/** Which gravity button to light: the gravity preset in force, Earth when no rule touches gravity. */
+function activeGravity(rules: RuleInfo[]): string | null {
+  const g = [...rules].reverse().find((r) => r.writes.includes('world.gravity'));
+  if (!g) return 'earth_gravity';
+  return g.kind === 'preset' ? g.id.replace(/^preset_/, '') : null;
+}
+
 export function App() {
   const hostRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Engine | null>(null);
@@ -456,6 +463,8 @@ export function App() {
         onHoldStart={() => engineRef.current?.voice.start()}
         onHoldEnd={() => engineRef.current?.voice.stop()}
         onSubmit={submitTyped}
+        onPreset={(id) => engineRef.current?.rules.preset(id)}
+        activeGravity={activeGravity(rules)}
       />
     </main>
   );

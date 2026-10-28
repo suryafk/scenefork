@@ -123,7 +123,20 @@ export interface Preset {
   patterns: string[];
   keywords: string[];
   action?: 'reset';
+  /** Presets with one-click buttons (Earth, Moon, Mars, Jupiter, Zero-G). */
+  group?: 'gravity';
+  /** Zero gravity: nudge every body so the scene floats off its floors. */
+  float?: FloatNudge;
   writes: PresetWrite[];
+}
+
+export interface FloatNudge {
+  /** Random upward speed range, in on-screen pixels per second. */
+  up_pxps: [number, number];
+  /** Random sideways speed, up to this, in pixels per second. */
+  side_pxps: number;
+  /** Random spin, up to this, rad/s. */
+  spin_radps: number;
 }
 
 export const PRESETS: Preset[] = (presetTable as { presets: Preset[] }).presets;
@@ -168,7 +181,7 @@ export interface Bindings {
 export const NO_BINDINGS: Bindings = { thisId: null, thatId: null, named: [] };
 
 export type RuleDef =
-  | { kind: 'preset'; id: string; name: string; presetId: string; writes: PresetWrite[]; targets: string[] | null }
+  | { kind: 'preset'; id: string; name: string; presetId: string; writes: PresetWrite[]; targets: string[] | null; float?: FloatNudge }
   | { kind: 'plugin'; id: string; name: string; summary: string; writes: string[]; source: string; bindings: Bindings };
 
 /** What the HUD shows for one active rule. */

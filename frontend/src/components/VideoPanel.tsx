@@ -85,6 +85,8 @@ export function VideoPanel({ backendLive, status, onForkVideo, onForkDemoStreet,
             playsInline
             onLoadedMetadata={(e) => {
               if (e.currentTarget.duration > MAX_SECONDS) setProblem(`That clip is over ${MAX_SECONDS}s. Shorter clips fork faster.`);
+              // A golden clip opens on its first prepared moment, so Fork is instant right away.
+              if (golden) e.currentTarget.currentTime = golden.forks[0].t_fork;
             }}
             onError={() => setProblem("This format isn't supported. Try an MP4.")}
           />

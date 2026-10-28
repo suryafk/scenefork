@@ -23,6 +23,12 @@ describe('router', () => {
     ['flip the gravity', 'reverse_gravity'],
     ['make the floor icy', 'slippery'],
     ['reset', 'reset'],
+    ['make the gravity like mars', 'mars_gravity'],
+    ['jupiter gravity', 'jupiter_gravity'],
+    ['back to earth gravity', 'earth_gravity'],
+    ['make everything float', 'zero_gravity'],
+    ['zero-g', 'zero_gravity'],
+    ['super gravity', 'super_gravity'],
   ])('"%s" is the %s preset', (text, id) => {
     expect(matchPreset(text)?.id).toBe(id);
   });
@@ -127,7 +133,7 @@ describe('RuleController', () => {
   it('gives up after two repairs and falls back to the closest preset', async () => {
     const noop: PluginDoc = { ...SLINGSHOT, source: 'return {};' };
     const h = harness(() => ({ ok: true, plugin: noop, problems: [], ms: 10 }));
-    await h.controller.command('make everything float in space with sparkles', []);
+    await h.controller.command('objects should float and spin with sparkles like outer-space dust', []);
     expect(h.requests).toHaveLength(3);
     expect(h.loaded).toEqual([expect.objectContaining({ presetId: 'zero_gravity' })]);
     expect(h.toasts).toEqual(["Couldn't build that rule, applied Zero gravity instead."]);

@@ -1,67 +1,276 @@
 {
-  "description": "Voice presets (design: Intent routing). Matched locally on interim transcripts in under 5 ms; no model call. A pattern hit is confidence 1. Keywords (0.6 for one hit, 0.8 for two, 1 for three) give the closest preset for the codegen failure rule (applied when confidence >= 0.6). Entity fields use `entity:*`: the pointed-at or named entity when the command has one, else every dynamic body.",
+  "description": "Voice presets (design: Intent routing). Matched locally on interim transcripts in under 5 ms; no model call. A pattern hit is confidence 1. Keywords (0.6 for one hit, 0.8 for two, 1 for three) give the closest preset for the codegen failure rule (applied when confidence >= 0.6). Entity fields use `entity:*`: the pointed-at or named entity when the command has one, else every dynamic body. `group: gravity` presets get one-click buttons. `float` (zero gravity) also nudges every dynamic body: random upward and sideways speed in on-screen pixels per second (so it looks the same at any scale) and spin in rad/s, so the scene drifts off its floors.",
   "presets": [
     {
       "id": "zero_gravity",
       "name": "Zero gravity",
-      "patterns": ["\\b(zero|no) gravity\\b", "\\bweightless\\b", "\\bturn off gravity\\b"],
-      "keywords": ["zero", "weightless", "float", "space"],
-      "writes": [{ "field": "world.gravity", "value": [0, 0] }]
+      "patterns": [
+        "\\b(zero|no) gravity\\b",
+        "\\bweightless(ness)?\\b",
+        "\\bturn off (the )?gravity\\b",
+        "\\bzero[ -]?g\\b",
+        "\\b(everything|all|scene|world|it all) (float|floats|floating)\\b",
+        "\\bfloat (everything|away)\\b",
+        "\\bin (outer )?space\\b"
+      ],
+      "keywords": [
+        "zero",
+        "weightless",
+        "float",
+        "space"
+      ],
+      "writes": [
+        {
+          "field": "world.gravity",
+          "value": [
+            0,
+            0
+          ]
+        }
+      ],
+      "group": "gravity",
+      "float": {
+        "up_pxps": [
+          30,
+          80
+        ],
+        "side_pxps": 40,
+        "spin_radps": 0.6
+      }
     },
     {
       "id": "moon_gravity",
-      "name": "Moon gravity",
-      "patterns": ["\\bmoon\\b", "\\blunar\\b"],
-      "keywords": ["moon", "lunar"],
-      "writes": [{ "field": "world.gravity", "value": [0, 1.62] }]
+      "name": "Moon",
+      "patterns": [
+        "\\bmoon\\b",
+        "\\blunar\\b"
+      ],
+      "keywords": [
+        "moon",
+        "lunar"
+      ],
+      "writes": [
+        {
+          "field": "world.gravity",
+          "value": [
+            0,
+            1.62
+          ]
+        }
+      ],
+      "group": "gravity"
+    },
+    {
+      "id": "mars_gravity",
+      "name": "Mars",
+      "patterns": [
+        "\\bmars\\b",
+        "\\bmartian\\b",
+        "\\bred planet\\b"
+      ],
+      "keywords": [
+        "mars",
+        "martian"
+      ],
+      "group": "gravity",
+      "writes": [
+        {
+          "field": "world.gravity",
+          "value": [
+            0,
+            3.71
+          ]
+        }
+      ]
+    },
+    {
+      "id": "earth_gravity",
+      "name": "Earth",
+      "patterns": [
+        "\\bearth\\b",
+        "\\b(normal|regular|real) gravity\\b"
+      ],
+      "keywords": [
+        "earth"
+      ],
+      "group": "gravity",
+      "writes": [
+        {
+          "field": "world.gravity",
+          "value": [
+            0,
+            9.81
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jupiter_gravity",
+      "name": "Jupiter",
+      "patterns": [
+        "\\bjupiter\\b",
+        "\\bjovian\\b"
+      ],
+      "keywords": [
+        "jupiter",
+        "jovian"
+      ],
+      "group": "gravity",
+      "writes": [
+        {
+          "field": "world.gravity",
+          "value": [
+            0,
+            24.79
+          ]
+        }
+      ]
     },
     {
       "id": "super_gravity",
       "name": "Super gravity",
-      "patterns": ["\\b(super|heavy|double|triple|strong) gravity\\b", "\\bjupiter\\b"],
-      "keywords": ["jupiter", "crush", "stronger"],
-      "writes": [{ "field": "world.gravity", "value": [0, 24.8] }]
+      "patterns": [
+        "\\b(super|heavy|double|triple|strong) gravity\\b"
+      ],
+      "keywords": [
+        "crush",
+        "stronger"
+      ],
+      "writes": [
+        {
+          "field": "world.gravity",
+          "value": [
+            0,
+            29.4
+          ]
+        }
+      ]
     },
     {
       "id": "reverse_gravity",
       "name": "Reverse gravity",
-      "patterns": ["\\b(reverse|flip|invert)(ed)? (the )?gravity\\b", "\\bgravity (goes )?up\\b", "\\bupside down\\b"],
-      "keywords": ["reverse", "flip", "invert", "upside", "ceiling"],
-      "writes": [{ "field": "world.gravity", "value": [0, -9.81] }]
+      "patterns": [
+        "\\b(reverse|flip|invert)(ed)? (the )?gravity\\b",
+        "\\bgravity (goes )?up\\b",
+        "\\bupside down\\b"
+      ],
+      "keywords": [
+        "reverse",
+        "flip",
+        "invert",
+        "upside",
+        "ceiling"
+      ],
+      "writes": [
+        {
+          "field": "world.gravity",
+          "value": [
+            0,
+            -9.81
+          ]
+        }
+      ]
     },
     {
       "id": "bouncy",
       "name": "Bouncy",
-      "patterns": ["\\bbouncy\\b", "\\bbounc(e|ing)\\b", "\\btrampoline\\b", "\\bsuper ?ball\\b"],
-      "keywords": ["bouncy", "bounce", "rubber", "trampoline", "spring"],
-      "writes": [{ "field": "entity:*.restitution", "value": 0.95 }]
+      "patterns": [
+        "\\bbouncy\\b",
+        "\\bbounc(e|ing)\\b",
+        "\\btrampoline\\b",
+        "\\bsuper ?ball\\b"
+      ],
+      "keywords": [
+        "bouncy",
+        "bounce",
+        "rubber",
+        "trampoline",
+        "spring"
+      ],
+      "writes": [
+        {
+          "field": "entity:*.restitution",
+          "value": 0.95
+        }
+      ]
     },
     {
       "id": "slippery",
       "name": "Slippery",
-      "patterns": ["\\b(icy|slippery|frictionless)\\b", "\\bno friction\\b", "\\bon ice\\b"],
-      "keywords": ["ice", "icy", "slippery", "slide", "frictionless", "skate"],
-      "writes": [{ "field": "entity:*.friction", "value": 0.02 }]
+      "patterns": [
+        "\\b(icy|slippery|frictionless)\\b",
+        "\\bno friction\\b",
+        "\\bon ice\\b"
+      ],
+      "keywords": [
+        "ice",
+        "icy",
+        "slippery",
+        "slide",
+        "frictionless",
+        "skate"
+      ],
+      "writes": [
+        {
+          "field": "entity:*.friction",
+          "value": 0.02
+        }
+      ]
     },
     {
       "id": "slow_motion",
       "name": "Slow motion",
-      "patterns": ["\\bslow[ -]?(motion|mo)\\b", "\\bslow (down )?time\\b", "\\bbullet time\\b"],
-      "keywords": ["slow", "matrix", "bullet"],
-      "writes": [{ "field": "world.time_scale", "value": 0.3 }]
+      "patterns": [
+        "\\bslow[ -]?(motion|mo)\\b",
+        "\\bslow (down )?time\\b",
+        "\\bbullet time\\b"
+      ],
+      "keywords": [
+        "slow",
+        "matrix",
+        "bullet"
+      ],
+      "writes": [
+        {
+          "field": "world.time_scale",
+          "value": 0.3
+        }
+      ]
     },
     {
       "id": "fast_forward",
       "name": "Fast forward",
-      "patterns": ["\\bfast[ -]?forward\\b", "\\bspeed up time\\b", "\\bdouble speed\\b"],
-      "keywords": ["fast", "quick", "hurry"],
-      "writes": [{ "field": "world.time_scale", "value": 2 }]
+      "patterns": [
+        "\\bfast[ -]?forward\\b",
+        "\\bspeed up time\\b",
+        "\\bdouble speed\\b"
+      ],
+      "keywords": [
+        "fast",
+        "quick",
+        "hurry"
+      ],
+      "writes": [
+        {
+          "field": "world.time_scale",
+          "value": 2
+        }
+      ]
     },
     {
       "id": "reset",
       "name": "Reset",
-      "patterns": ["^\\s*reset\\b", "\\bback to normal\\b", "\\bundo (all|everything)\\b", "\\bnormal physics\\b"],
-      "keywords": ["reset", "normal", "undo"],
+      "patterns": [
+        "^\\s*reset\\b",
+        "\\bback to normal\\b",
+        "\\bundo (all|everything)\\b",
+        "\\bnormal physics\\b"
+      ],
+      "keywords": [
+        "reset",
+        "normal",
+        "undo"
+      ],
       "action": "reset",
       "writes": []
     }

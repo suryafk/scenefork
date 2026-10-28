@@ -15,7 +15,7 @@ const [SLINGSHOT, SIDEWAYS] = JSON.parse(shared('fixtures/plugin_valid.json')) a
 
 const preset = (presetId: string, targets: string[] | null = null): RuleDef => {
   const p = PRESETS.find((x) => x.id === presetId)!;
-  return { kind: 'preset', id: `preset_${presetId}`, name: p.name, presetId, writes: p.writes, targets };
+  return { kind: 'preset', id: `preset_${presetId}`, name: p.name, presetId, writes: p.writes, targets, ...(p.float ? { float: p.float } : {}) };
 };
 const plugin = (id: string, writes: string[], source: string): RuleDef => ({
   kind: 'plugin',
@@ -230,6 +230,30 @@ describe('verifier (design: Verifier, baseline diff)', () => {
   it('flags runaway speeds', () => {
     const rocket: PluginDoc = { ...SIDEWAYS, writes: ['entity:ball.velocity'], source: 'return { onStep() { ctx.applyImpulse("ball", 0, -500); } };' };
     expect(verifyPlugin(req(rocket))).toMatchObject({ ok: false, stage: 'stability' });
+  });
+});
+
+describe('gravity presets', () => {
+  const g = (id: string) => (PRESETS.find((p) => p.id === id)!.writes[0].value as [number, number])[1];
+
+  it('has Earth, Moon, Mars and Jupiter at their real surface gravity', () => {
+    expect([g('earth_gravity'), g('moon_gravity'), g('mars_gravity'), g('jupiter_gravity')]).toEqual([9.81, 1.62, 3.71, 24.79]);
+  });
+
+  it('zero gravity floats the whole scene off its floors and keeps it in the frame', () => {
+    const sim = new SimCore(syntheticManifest);
+    const start = new Map(sim.ids.map((id) => [id, sim.pose(id)]));
+    sim.loadRule(preset('zero_gravity'));
+    const dynamic = sim.ids.filter((id) => sim.isDynamic(id));
+    expect(dynamic.every((id) => !sim.floorActive(id) && sim.entityView(id)!.vy < 0)).toBe(true);
+    run(sim, 60);
+    expect(dynamic.filter((id) => sim.pose(id).y < start.get(id)!.y - 10).length).toBeGreaterThanOrEqual(dynamic.length - 1);
+    run(sim, 900); // 15 s of drifting: the ceiling keeps everything inside the frame
+    for (const id of dynamic) expect(sim.pose(id).y, id).toBeGreaterThan(0);
+    // Back to Earth: everything comes down again.
+    sim.loadRule(preset('earth_gravity'));
+    run(sim, 240);
+    for (const id of dynamic) expect(Math.abs(sim.entityView(id)!.vy), id).toBeLessThan(1);
   });
 });
 

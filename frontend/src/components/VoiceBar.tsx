@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import { PRESETS } from '../sim/rules';
+
+const GRAVITY = PRESETS.filter((p) => p.group === 'gravity');
+const G_LABEL: Record<string, string> = { zero_gravity: 'Zero-G', moon_gravity: 'Moon', mars_gravity: 'Mars', earth_gravity: 'Earth', jupiter_gravity: 'Jupiter' };
 
 interface Props {
   supported: boolean;
@@ -11,11 +15,14 @@ interface Props {
   onHoldStart: () => void;
   onHoldEnd: () => void;
   onSubmit: (text: string) => void;
+  onPreset: (id: string) => void;
+  /** The gravity preset in force, if any (highlights its button). */
+  activeGravity: string | null;
 }
 
 const EXAMPLES = ['moon gravity', 'make this bouncy', 'slingshot the truck', 'reset'];
 
-export function VoiceBar({ supported, engine, listening, transcript, building, onHoldStart, onHoldEnd, onSubmit }: Props) {
+export function VoiceBar({ supported, engine, listening, transcript, building, onHoldStart, onHoldEnd, onSubmit, onPreset, activeGravity }: Props) {
   const [text, setText] = useState('');
   const submit = () => {
     const t = text.trim();
@@ -59,6 +66,17 @@ export function VoiceBar({ supported, engine, listening, transcript, building, o
           Apply
         </button>
       </form>
+      <div className="gravity" role="group" aria-label="Gravity">
+        <span>Gravity</span>
+        {GRAVITY.map((p) => {
+          const g = p.writes[0]?.value as [number, number] | undefined;
+          return (
+            <button key={p.id} aria-pressed={activeGravity === p.id} onClick={() => onPreset(p.id)} title={g ? `${g[1]} m/s²` : p.name}>
+              {G_LABEL[p.id] ?? p.name}
+            </button>
+          );
+        })}
+      </div>
       <span className="transcript" aria-live="polite">
         {building ? 'Building rule… ' : ''}
         {transcript && <q>{transcript}</q>}
