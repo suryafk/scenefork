@@ -49,6 +49,16 @@ def ctx_api() -> str:
     return (SHARED_DIR / "ctx.d.ts").read_text()
 
 
+def trim_text(doc: dict) -> dict:
+    """Cut prose fields to their schema limits: an over-long reason isn't worth a repair round."""
+    props = contracts.schema("plugin")["properties"]
+    out = dict(doc)
+    for key in ("reason", "summary"):
+        if isinstance(out.get(key), str):
+            out[key] = out[key][: props[key]["maxLength"]]
+    return out
+
+
 def schema_problems(doc: dict) -> list[str]:
     validator = Draft202012Validator(contracts.schema("plugin"))
     out = []
@@ -190,4 +200,5 @@ class LiveMutator:
                 completion_tokens=usage.get("completion_tokens", 0),
             )
             self.cache.put_json(key, doc)
+        doc = trim_text(doc)
         return CodegenResult(doc, schema_problems(doc), cached)

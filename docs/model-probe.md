@@ -76,3 +76,19 @@ Run through the real app (browser → WebSocket → live adapters), with `SPEND_
 - **Cropped edit:** Muse Image now only sees the region's neighborhood (the bounding box plus 50% margin on each side, at least 256px, so 640×360 for the truck). Freeing the truck again gave a background where the buildings continue naturally behind it, with the same windows and layout as the original, and the nearby cone untouched. Remaining flaws: the curb in the filled area sits a few pixels off at the crop edge, and a faint shadow smudge stays on the road. That's good enough for live clips; golden clips still get hand-touched plates (OV9).
 - SAM and grounding replayed from the dev cache (free). The only charge was the edit: **$0.01**. Ledger total for Phase 2: **$0.0533**.
 - **Background reject:** masks wider than 75% of the frame are refused (the road strip was 79%), and labels naming scenery (road, sidewalk, wall and so on) are pinned `fixed`. Both are tested on fakes.
+
+## Phase 3 live codegen check (2026-10-28, demo street, full stack)
+
+Run through the real app (typed commands → WebSocket → MutatorAgent on `muse-spark-1.3`, `reasoning_effort="minimal"` → verifier worker in the browser), with `SPEND_CAP_USD=1`. Total: **$0.0177** for 3 calls. Ledger total after Phase 3: **$0.071**.
+
+| Command | Spark time | Tokens in / out | Cost | Result |
+|---|---|---|---|---|
+| "slingshot the truck" | 5.0 s | 2619 / 803 | $0.0067 | Passed on the first attempt (1 dragRelease assertion, 34 ms in the verifier). Live: pulled back to x=3.0 m and released, the truck flew right to 8.4 m. |
+| "spin the cone" | 5.1 s | 2623 / 835 | $0.0068 | Passed on the first attempt (2 spin assertions, 9 ms). Spun both cones (the label matched two entities), about 11-12 rad/s live. |
+| "paint the truck blue" | 2.5 s | 2616 / 209 | $0.0042 | Declined as infeasible with a clear reason, no repair rounds. |
+
+Findings:
+1. **3 of 3 behaved correctly on the first attempt.** No repairs were needed, so the repair path is still only exercised by the Vitest suite.
+2. **A codegen attempt costs about $0.004-0.007**, below the $0.01-0.03 estimate. The prompt is about 2.6k tokens, and most of it is `shared/ctx.d.ts`.
+3. The infeasible reason ran past the schema's 200-character limit. Prose fields are now trimmed on the backend instead of triggering a schema problem.
+4. The generated code respects the sandbox rules (no `undefined`, no computed member access, `== null` checks), and declared write sets matched its writes.

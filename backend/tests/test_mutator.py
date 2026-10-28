@@ -98,3 +98,10 @@ def test_live_mutator_reports_schema_problems_for_the_repair_round(tmp_path):
     api = StubAPI({**SLINGSHOT, "assertions": [{**SLINGSHOT["assertions"][0], "at_tick": 999}]})
     m = LiveMutator(api, SpendLedger(tmp_path / "s", 1.0), DevCache(tmp_path / "c", False), "minimal")
     assert run(m.generate(req("slingshot"))).problems[0].startswith("assertions/0/at_tick")
+
+
+def test_long_reasons_are_trimmed_not_sent_back_for_repair(tmp_path):
+    api = StubAPI({"feasible": False, "reason": "x" * 400, "name": "", "summary": "", "writes": [], "source": "", "assertions": []})
+    m = LiveMutator(api, SpendLedger(tmp_path / "s", 1.0), DevCache(tmp_path / "c", False), "minimal")
+    result = run(m.generate(req("paint the truck blue")))
+    assert result.problems == [] and len(result.plugin["reason"]) == 200

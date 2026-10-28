@@ -41,4 +41,4 @@ Unit prices (docs/model-probe.md):
 | Muse Image | $0.01 per image |
 | Voice | $0.18 per hour |
 
-Typical costs: a grounding call is about $0.003; a SAM click is $0.0025; a codegen attempt is about $0.01-0.03.
+Typical costs: a grounding call is about $0.003; a SAM click is $0.0025; a codegen attempt is about $0.004-0.007 (measured, docs/model-probe.md).
