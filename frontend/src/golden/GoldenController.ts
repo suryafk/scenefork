@@ -32,6 +32,7 @@ export interface GoldenManifest {
   height: number;
   pixels_per_meter: number;
   ground_material: SceneManifest['ground_material'];
+  floor_y_px?: number;
   frame: string;
   objects: GoldenObject[];
 }
@@ -116,6 +117,7 @@ export class GoldenController {
       pixels_per_meter: manifest.pixels_per_meter,
       gravity_mps2: 9.81,
       ground_material: manifest.ground_material,
+      floor_y_px: manifest.floor_y_px,
       entities: [],
     });
     trace('[golden] start', manifest.clip_id, manifest.fork_index, manifest.objects.length, 'objects', manifest.pixels_per_meter, 'px/m');

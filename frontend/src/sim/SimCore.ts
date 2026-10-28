@@ -89,6 +89,11 @@ interface BodyRec {
   partsLocalPx: Point[][];
   floor: RAPIER.Collider | null;
   floorActive: boolean;
+  /**
+   * Bodies this one sits on whose outlines overlap it on screen (a camera looking down at a stack).
+   * Its own floor holds it only while one of them is still underneath.
+   */
+  supporters: BodyRec[];
   floorY: number;
   floorX1: number;
   floorX2: number;
@@ -279,6 +284,11 @@ export class SimCore {
       }
       this.rebalanceMasses();
       this.buildOwnFloor(rec);
+      // Objects already freed that sit on this one (a pot freed before the book under it) now
+      // keep their floor only while it stays underneath, whatever order they were freed in.
+      for (const other of this.recs.values()) {
+        if (other !== rec && other.floorActive && this.restsOn(other, rec)) other.supporters.push(rec);
+      }
     }
     // Scene-wide presets ("make everything bouncy") cover objects freed after them too.
     for (const rule of this.rules) {
@@ -339,9 +349,11 @@ export class SimCore {
       const c = this.world.createCollider(desc.setFriction(0.8).setRestitution(0.15), this.ground);
       this.colliderOwner.set(c.handle, GROUND);
     };
-    // Global floor: top face on the frame's bottom edge. Walls reach well above the frame
-    // so thrown objects come back down instead of leaving the scene.
-    add(RAPIER.ColliderDesc.cuboid(w / 2 + 2, 1).setTranslation(w / 2, h + 1));
+    // Global floor: top face on the scene's floor line (golden clips can set one, e.g. a desk
+    // surface), else the frame's bottom edge. Walls reach well above the frame so thrown
+    // objects come back down instead of leaving the scene.
+    const floorY = (this.manifest.floor_y_px ?? this.manifest.resolution.height) / this.ppm;
+    add(RAPIER.ColliderDesc.cuboid(w / 2 + 2, 1).setTranslation(w / 2, floorY + 1));
     add(RAPIER.ColliderDesc.cuboid(1, h * 3).setTranslation(-1, 0));
     add(RAPIER.ColliderDesc.cuboid(1, h * 3).setTranslation(w + 1, 0));
   }
@@ -396,6 +408,7 @@ export class SimCore {
       partsLocalPx,
       floor: null,
       floorActive: false,
+      supporters: [],
       floorY: (maxY + 1) / ppm,
       floorX1: (centroid[0] - 0.75 * bb.w) / ppm,
       floorX2: (centroid[0] + 0.75 * bb.w) / ppm,
@@ -413,14 +426,19 @@ export class SimCore {
     return rec;
   }
 
+  /** Just under the middle of a body's lowest point: where a supporter would be. */
+  private pointBelow(rec: BodyRec): { x: number; y: number } {
+    const t = rec.body.translation();
+    return { x: t.x, y: t.y + rec.bottomOffset + 2 / this.ppm };
+  }
+
   private buildOwnFloor(rec: BodyRec): void {
     // An object resting on another dynamic object (a bottle on a crate) gets no own floor:
     // its supporter holds it up, so it falls when the supporter is pulled away. A pair that
     // overlaps on screen is one object in front of another, not support.
     // Tested against where the other bodies are now, not where they were painted, since
     // objects freed later can land on (or next to) ones already moved.
-    const t = rec.body.translation();
-    const below = { x: t.x, y: t.y + rec.bottomOffset + 2 / this.ppm };
+    const below = this.pointBelow(rec);
     const supported = [...this.recs.values()].some(
       (o) => o !== rec && o.dynamic && !this.isExempt(o.id, rec.id) && o.colliders.some((c) => c.containsPoint(below)),
     );
@@ -438,6 +456,17 @@ export class SimCore {
     rec.floor = floor;
     rec.floorActive = true;
     this.floorOwner.set(floor.handle, rec.id);
+    rec.supporters = [...this.recs.values()].filter((o) => o !== rec && this.restsOn(rec, o));
+  }
+
+  /**
+   * Support, not occlusion: `upper` stands on `lower` when its center is above lower's top and
+   * its base lands inside lower. A far object behind a near one fails the first test.
+   */
+  private restsOn(upper: BodyRec, lower: BodyRec): boolean {
+    if (!lower.dynamic) return false;
+    const lowerTop = lower.body.translation().y - lower.halfHeight;
+    return upper.body.translation().y < lowerTop && lower.colliders.some((c) => c.containsPoint(this.pointBelow(upper)));
   }
 
   private configurePart(desc: RAPIER.ColliderDesc, spec: EntitySpec): void {
@@ -552,8 +581,14 @@ export class SimCore {
       const t = rec.body.translation();
       const liftedOff = rec.floorY - (t.y + rec.bottomOffset) > rec.halfHeight;
       const leftSpan = t.x < rec.floorX1 || t.x > rec.floorX2;
+      // The bodies it stood on were pulled away: it falls.
+      const below = { x: (rec.floorX1 + rec.floorX2) / 2, y: rec.floorY + 1 / this.ppm };
+      const unsupported = rec.supporters.length > 0 && !rec.supporters.some((s) => s.colliders.some((c) => c.containsPoint(below)));
       // Permanent: a thrown or carried-away object lands on the global floor from now on.
-      if (liftedOff || leftSpan) rec.floorActive = false;
+      if (liftedOff || leftSpan || unsupported) {
+        rec.floorActive = false;
+        rec.body.wakeUp(); // a body resting on its floor may be asleep
+      }
     }
   }
 

@@ -2,12 +2,13 @@
 
 import asyncio
 import json
+from dataclasses import replace
 
 import cv2
 import numpy as np
 
 from app import contracts, golden, vision
-from app.adapters import build_adapters
+from app.adapters import InpaintResult, build_adapters
 from app.devcache import DevCache
 from app.spend import SpendLedger
 from tests.conftest import street_scene
@@ -15,8 +16,8 @@ from tests.conftest import street_scene
 TRUCK, CONE = (450, 420), (920, 530)
 
 
-def export(settings, clicks):
-    frame = street_scene()
+def export(settings, clicks, frame=None):
+    frame = street_scene() if frame is None else frame
     adapters = build_adapters(settings, SpendLedger(settings.spend_dir, 1.0), DevCache(settings.cache_dir, False))
     return frame, asyncio.run(golden.export_fork(adapters, frame, clicks, log=lambda *_: None))
 
@@ -32,7 +33,7 @@ def paste(base: np.ndarray, patch_webp: bytes, bbox: dict) -> np.ndarray:
 
 
 def test_export_writes_a_valid_fork_and_index(settings, tmp_path):
-    frame, (objects, skipped) = export(settings, [TRUCK, CONE, (460, 430)])
+    frame, (objects, skipped) = export(settings, [[TRUCK], [CONE], [(460, 430)]])
     assert [o.doc["id"] for o in objects] == ["obj_1", "obj_2"]
     assert skipped == ["(460, 430) is inside an object already exported"]
     manifest = golden.write_fork(tmp_path, "street_01", "Street", 0, 1.5, frame, objects)
@@ -66,7 +67,7 @@ def test_a_pasted_patch_reproduces_the_plate_inside_the_region_only():
 
 
 def test_patches_stack_in_any_order(settings):
-    frame, (objects, _) = export(settings, [TRUCK, CONE])
+    frame, (objects, _) = export(settings, [[TRUCK], [CONE]])
     truck, cone = objects
     a = paste(paste(frame, truck.files["obj_1_patch.webp"], truck.doc["patch_bbox"]), cone.files["obj_2_patch.webp"], cone.doc["patch_bbox"])
     b = paste(paste(frame, cone.files["obj_2_patch.webp"], cone.doc["patch_bbox"]), truck.files["obj_1_patch.webp"], truck.doc["patch_bbox"])
@@ -88,3 +89,43 @@ def test_frames_are_fitted_to_1280():
     big = np.zeros((2160, 3840, 3), np.uint8)
     assert golden.fit_frame(big).shape[:2] == (720, 1280)
     assert vision.encode_jpeg(golden.fit_frame(big))
+
+
+def stacked_scene() -> np.ndarray:
+    """A blue box sitting on a wide orange box: touching objects, like a pot on books."""
+    img = np.full((720, 1280, 3), (200, 200, 200), np.uint8)
+    img[560:] = (120, 150, 180)
+    cv2.rectangle(img, (500, 460), (800, 560), (40, 120, 230), -1)  # bottom (orange)
+    cv2.rectangle(img, (600, 380), (700, 460), (200, 90, 30), -1)  # top (blue), resting on it
+    return img
+
+
+class WallInpainter:
+    """A perfect fill for this scene: wall color above the floor line (tests the compositing, not Telea)."""
+
+    async def remove(self, plate, region, label):
+        out = plate.copy()
+        out[region & (np.arange(720)[:, None] < 560)] = (200, 200, 200)
+        out[region & (np.arange(720)[:, None] >= 560)] = (120, 150, 180)
+        return InpaintResult(out, "wall")
+
+
+def test_stacked_objects_clean_up_in_any_order_without_erasing_neighbors(settings):
+    frame = stacked_scene()
+    adapters = replace(build_adapters(settings, SpendLedger(settings.spend_dir, 1.0), DevCache(settings.cache_dir, False)), inpainter=WallInpainter())
+    objects, _ = asyncio.run(golden.export_fork(adapters, frame, [[(650, 420)], [(650, 510)]], log=lambda *_: None))
+    top, bottom = objects
+    paste_top = lambda img: paste(img, top.files["obj_1_patch.webp"], top.doc["patch_bbox"])  # noqa: E731
+    paste_bottom = lambda img: paste(img, bottom.files["obj_2_patch.webp"], bottom.doc["patch_bbox"])  # noqa: E731
+    # Freeing only the bottom box must not touch the top box still sitting there.
+    only_bottom = paste_bottom(frame)
+    assert np.array_equal(only_bottom[385:455, 605:695], frame[385:455, 605:695])
+    assert not np.array_equal(only_bottom[470:550, 520:780], frame[470:550, 520:780])
+    # Freeing only the top box leaves the bottom box intact.
+    only_top = paste_top(frame)
+    assert np.array_equal(only_top[470:550, 520:780], frame[470:550, 520:780])
+    # Both, in either order: the same picture, with no box color left.
+    a, b = paste_bottom(paste_top(frame)), paste_top(paste_bottom(frame))
+    assert np.abs(a.astype(int) - b.astype(int)).max() <= 1
+    box_pixels = lambda img: int(((np.abs(img.astype(int) - (40, 120, 230)).sum(2) < 40) | (np.abs(img.astype(int) - (200, 90, 30)).sum(2) < 40)).sum())  # noqa: E731
+    assert box_pixels(frame) > 30_000 and box_pixels(a) < 300

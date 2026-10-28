@@ -23,6 +23,9 @@ Also record **one fresh clip on camera** during the shoot. It is forked live in 
 
 1. Pick the fork moment and note the time `t` in seconds. Grab that frame as a PNG if OpenCV can't read your phone's HEVC (QuickTime: File → Export As → 1080p, or take a screenshot of the paused frame).
 2. Open the frame in Preview, scaled so its long side is 1280 px. Note one click point (x,y) near the middle of each object.
+   - **List stacked objects top first** (the cactus, then the book under it). Objects are removed in click order, so each background fill sees the ones above already gone.
+   - **See-through or spiky objects** (a mesh pen cup, a plant) may get only part of the object from one click. Give several points on the same object with `+`: `--click "1075,398+1075,505+1028,455"`.
+   - **Note the y of the table or ground surface** for `--floor-y`, so thrown objects land on it instead of at the bottom of the frame.
 3. Run a free dry run with fake models to check the clicks hit the right objects:
 
 ```bash
@@ -32,8 +35,10 @@ cd backend && SCENEFORK_ADAPTERS=fake uv run python scripts/export_golden.py --c
 4. Run it live (costs about $0.014 per object: one SAM 3.1 click, one Muse Spark grounding, one Muse Image edit). The script asks before spending, and re-running the same frame and clicks is free from the dev cache:
 
 ```bash
-cd backend && SCENEFORK_ADAPTERS=live uv run python scripts/export_golden.py --clip-id desk_01 --title "Desk" --video ~/clips/desk.mov --t 2.4 --click 420,380 --click 760,410 --click 1010,450 --copy-video
+cd backend && SCENEFORK_ADAPTERS=live uv run python scripts/export_golden.py --clip-id desk_01 --title "Desk" --video ~/clips/desk.mov --t 2.4 --click 420,380 --click 760,410 --click 1010,450 --floor-y 560 --copy-video
 ```
+
+   The first golden clip, `desk_01` (an AI-generated desk scene), was exported this way: 8 objects, $0.19 including one re-export.
 
 5. Hand-touch the backgrounds (OV9). Open each `frontend/public/golden/<clip>/<fork>/obj_N_patch.webp` in an editor that keeps transparency (Photopea, Pixelmator, GIMP), fix seams or smudges inside the opaque area, and export as WebP (or PNG renamed to the same file name). Don't change the image size.
 6. Check it in the app: the clip appears as a ★ button. Free every object, in different orders, at full screen. Nothing should leave a ghost outline.

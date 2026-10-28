@@ -7,11 +7,18 @@ and write static files the browser plays with no backend.
         manifest.json                  shared/golden.schema.json
         frame.jpg                      the fork frame
         <obj>_sprite.webp              the object, alpha-cut
-        <obj>_patch.webp               clean background under the object, alpha = dilated region
+        <obj>_patch.webp               clean background under the object (see below)
 
-Each patch comes from inpainting the ORIGINAL frame for that object alone. Because the composite
-leaves every pixel outside the region untouched, the browser can stack patches for any set of
-freed objects in any order. Patches are plain files so they can be touched up by hand (OV9).
+Objects are removed one after another on a running plate, in click order (list stacked objects top
+first), so each fill sees the earlier objects gone and the end result is one consistent empty scene.
+Every patch is cut from that empty plate over its object's removal region, minus the pixels of every
+OTHER object. So, for any set of freed objects in any order, the browser shows:
+
+    empty plate   where some freed object's region covers it and no unfreed object stands
+    the frame     everywhere else
+
+which also holds for stacks (a pot on books): freeing one never erases a neighbor still standing.
+Patches are plain lossless files so they can be touched up by hand (OV9).
 """
 
 import json
@@ -57,13 +64,16 @@ def fit_frame(frame: np.ndarray, max_side: int = 1280) -> np.ndarray:
     return cv2.resize(frame, (round(w * s), round(h * s)), interpolation=cv2.INTER_AREA)
 
 
-def patch_image(plate: np.ndarray, region: np.ndarray) -> tuple[bytes, dict]:
-    """The cleaned pixels over the region's bounding box, with a soft alpha edge."""
+def patch_image(plate: np.ndarray, region: np.ndarray, keep_out: np.ndarray | None = None) -> tuple[bytes, dict]:
+    """The cleaned pixels over the region's bounding box, with a soft alpha edge. `keep_out` (other
+    objects' masks) gets alpha 0, so pasting never covers a neighbor that's still there."""
     grown = cv2.dilate(region.astype(np.uint8), np.ones((3, 3), np.uint8), iterations=PATCH_FEATHER_PX)
-    ys, xs = np.nonzero(grown)
-    x0, y0, x1, y1 = int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
     alpha = cv2.GaussianBlur(grown.astype(np.float32) * 255, (0, 0), PATCH_FEATHER_PX / 2)
     alpha = np.maximum(alpha, region.astype(np.float32) * 255)  # fully opaque inside the region
+    if keep_out is not None:
+        alpha[keep_out] = 0
+    ys, xs = np.nonzero(alpha > 0)
+    x0, y0, x1, y1 = int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
     bgra = np.dstack([plate[y0:y1, x0:x1], alpha[y0:y1, x0:x1].clip(0, 255).astype(np.uint8)])
     # Lossless: lossy WebP subsamples color, and these files get hand-touched (OV9).
     return vision.encode_webp(bgra, 101), {"x": x0, "y": y0, "w": x1 - x0, "h": y1 - y0}
@@ -81,40 +91,61 @@ def pixels_per_meter(objects: list[dict]) -> float:
     return round(min(max(statistics.median(ratios), MIN_PPM), MAX_PPM), 1)
 
 
-async def export_fork(adapters: Adapters, frame: np.ndarray, clicks: list[tuple[int, int]], log=print) -> tuple[list[ExportedObject], list[str]]:
-    """Free every clicked object from the original frame. Returns the objects and any skipped clicks."""
+Click = list[tuple[int, int]]
+
+
+async def export_fork(adapters: Adapters, frame: np.ndarray, clicks: list[Click], log=print) -> tuple[list[ExportedObject], list[str]]:
+    """Free every clicked object (each click is one or more points on one object). Returns the
+    objects and any skipped clicks."""
     jpeg = vision.encode_jpeg(frame, 92)
     taken = np.zeros(frame.shape[:2], bool)
-    out: list[ExportedObject] = []
+    found: list[tuple[Click, vision.CompiledObject, dict]] = []
     skipped: list[str] = []
-    for x, y in clicks:
+    # Pass 1: outline and ground every object on the original frame.
+    for points in clicks:
+        (x, y), more = points[0], tuple(points[1:])
+        where = " + ".join(f"({px}, {py})" for px, py in points)
         if taken[y, x]:
-            skipped.append(f"({x}, {y}) is inside an object already exported")
+            skipped.append(f"{where} is inside an object already exported")
             continue
-        mask = await adapters.segmenter.segment(frame, jpeg, x, y)
+        mask = await adapters.segmenter.segment(frame, jpeg, x, y, more)
         obj = vision.compile_object(frame, mask) if mask is not None else None
         if obj is None:
-            skipped.append(f"({x}, {y}) found no object (empty, tiny, or background-sized mask)")
+            skipped.append(f"{where} found no object (empty, tiny, or background-sized mask)")
             continue
         taken |= obj.mask
-        oid = f"obj_{len(out) + 1}"
-        grounding = contracts.pin_background(await adapters.grounder.ground(frame, obj))
-        result = await adapters.inpainter.remove(frame, obj.inpaint_mask, grounding["label"])
-        patch, patch_bbox = patch_image(result.plate, obj.inpaint_mask)
-        log(f"  {oid}: {grounding['label']} ({grounding['body_type']}, {grounding['mass_kg']:g} kg), plate via {result.method}")
+        found.append((points, obj, contracts.pin_background(await adapters.grounder.ground(frame, obj))))
+
+    # Pass 2: remove them one by one on a running plate, so the last plate is the empty scene.
+    plate = frame
+    methods = []
+    for _, obj, g in found:
+        result = await adapters.inpainter.remove(plate, obj.inpaint_mask, g["label"])
+        plate = result.plate
+        methods.append(result.method)
+
+    out: list[ExportedObject] = []
+    for i, ((points, obj, g), method) in enumerate(zip(found, methods)):
+        oid = f"obj_{i + 1}"
+        others = np.zeros(frame.shape[:2], bool)
+        for j, (_, other, _) in enumerate(found):
+            if j != i:
+                others |= other.mask
+        patch, patch_bbox = patch_image(plate, obj.inpaint_mask, others & ~obj.mask)
+        log(f"  {oid}: {g['label']} ({g['body_type']}, {g['mass_kg']:g} kg), plate via {method}")
         out.append(
             ExportedObject(
                 {
                     "id": oid,
-                    "click": [x, y],
-                    "label": grounding["label"],
+                    "click": list(points[0]),
+                    "label": g["label"],
                     "polygon_px": obj.polygon_px,
                     "sprite": f"{oid}_sprite.webp",
                     "sprite_bbox": obj.bbox,
                     "patch": f"{oid}_patch.webp",
                     "patch_bbox": patch_bbox,
-                    "plate_method": result.method,
-                    "grounding": grounding,
+                    "plate_method": method,
+                    "grounding": g,
                 },
                 {f"{oid}_sprite.webp": obj.sprite_webp, f"{oid}_patch.webp": patch},
             )
@@ -132,6 +163,7 @@ def write_fork(
     objects: list[ExportedObject],
     ppm: float | None = None,
     video: str | None = None,
+    floor_y: float | None = None,
 ) -> dict:
     """Write one fork point's files and update index.json. Returns the manifest."""
     h, w = frame.shape[:2]
@@ -148,6 +180,8 @@ def write_fork(
         "frame": "frame.jpg",
         "objects": docs,
     }
+    if floor_y is not None:
+        manifest["floor_y_px"] = floor_y
     if not contracts.is_valid("golden", manifest):
         raise ValueError("manifest failed shared/golden.schema.json")
     fork_dir = out_dir / clip_id / str(fork_index)

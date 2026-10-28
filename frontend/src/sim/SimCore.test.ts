@@ -91,6 +91,30 @@ describe('own floors', () => {
     sim.free();
   });
 
+  it.each([
+    ['pot first', ['pot', 'book']],
+    ['book first', ['book', 'pot']],
+  ])('drops a stacked object when its supporter is pulled out (%s)', (_, order) => {
+    // Golden desk: the camera looks slightly down, so the pot's outline overlaps the book's top.
+    const sim = new SimCore(scene([]));
+    const specs = { pot: entity('pot', box(600, 300, 60, 70), 0.4), book: entity('book', box(540, 355, 180, 46), 0.7) };
+    for (const id of order) sim.addEntity(specs[id as 'pot' | 'book']);
+    expect(sim.isExempt('pot', 'book')).toBe(true); // they overlap on screen
+    run(sim, 60);
+    const pot0 = sim.pose('pot');
+    expect(Math.abs(pot0.y - 335)).toBeLessThan(3); // still where it was painted
+    const book = sim.pose('book');
+    sim.grab(book.x, book.y);
+    for (let i = 0; i < 40; i++) {
+      sim.drag(book.x + 8 * i, book.y);
+      sim.step();
+    }
+    sim.release();
+    run(sim, 90);
+    expect(sim.pose('pot').y - pot0.y).toBeGreaterThan(30); // pulled out from under it: it falls
+    sim.free();
+  });
+
   it('switches a lifted object to the global floor for good', () => {
     const sim = new SimCore(scene([entity('crate', box(600, 400, 80, 80), 15)]));
     const p0 = sim.pose('crate');

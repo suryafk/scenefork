@@ -33,9 +33,13 @@ PER_OBJECT_USD = SAM_PER_IMAGE + IMAGE_PER_EDIT + 0.002
 DEFAULT_OUT = REPO_DIR / "frontend" / "public" / "golden"
 
 
-def parse_click(s: str) -> tuple[int, int]:
-    x, y = s.split(",")
-    return int(float(x)), int(float(y))
+def parse_click(s: str) -> list[tuple[int, int]]:
+    """"x,y" or several points on one object: "x,y+x2,y2"."""
+    points = []
+    for part in s.split("+"):
+        x, y = part.split(",")
+        points.append((int(float(x)), int(float(y))))
+    return points
 
 
 def main() -> int:
@@ -47,8 +51,9 @@ def main() -> int:
     src.add_argument("--image", type=Path)
     ap.add_argument("--t", type=float, default=0.0, help="fork time in seconds (with --video)")
     ap.add_argument("--fork-index", type=int, default=0)
-    ap.add_argument("--click", action="append", type=parse_click, required=True, help="x,y in frame pixels (after fitting to 1280)")
+    ap.add_argument("--click", action="append", type=parse_click, required=True, help="x,y in frame pixels (after fitting to 1280); x,y+x2,y2 for several points on one object. List stacked objects top first.")
     ap.add_argument("--ppm", type=float, help="pixels per meter; default: derived from grounding (OV6)")
+    ap.add_argument("--floor-y", type=float, help="where thrown objects land, in frame pixels (e.g. a table surface); default: the frame's bottom edge")
     ap.add_argument("--copy-video", action="store_true", help="copy the video next to the manifest so the player can play it")
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--yes", action="store_true", help="don't ask before live spending")
@@ -57,7 +62,7 @@ def main() -> int:
     settings = load_settings()
     frame = golden.fit_frame(golden.video_frame(args.video, args.t) if args.video else vision.decode_image(args.image.read_bytes()))
     h, w = frame.shape[:2]
-    for x, y in args.click:
+    for x, y in [p for click in args.click for p in click]:
         if not (0 <= x < w and 0 <= y < h):
             print(f"click ({x}, {y}) is outside the {w}x{h} frame", file=sys.stderr)
             return 2
@@ -82,7 +87,7 @@ def main() -> int:
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(args.video, dest)
         video_rel = f"{args.clip_id}/{dest.name}"
-    manifest = golden.write_fork(args.out, args.clip_id, args.title or args.clip_id, args.fork_index, args.t, frame, objects, args.ppm, video_rel)
+    manifest = golden.write_fork(args.out, args.clip_id, args.title or args.clip_id, args.fork_index, args.t, frame, objects, args.ppm, video_rel, args.floor_y)
     print(f"Wrote {len(objects)} objects, {manifest['pixels_per_meter']} px/m, to {args.out / args.clip_id / str(args.fork_index)}")
     print(f"Spent ${ledger.total_usd - before:.4f} (ledger total ${ledger.total_usd:.4f})")
     return 0 if objects else 1

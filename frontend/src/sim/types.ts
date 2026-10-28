@@ -46,6 +46,8 @@ export interface SceneManifest {
   pixels_per_meter: number;
   gravity_mps2: number;
   ground_material: AcousticMaterial;
+  /** Where thrown objects land, in frame pixels (default: the frame's bottom edge). */
+  floor_y_px?: number;
   entities: EntitySpec[];
 }
 

@@ -26,7 +26,9 @@ class InpaintResult:
 
 
 class Segmenter(Protocol):
-    async def segment(self, frame: np.ndarray, frame_jpeg: bytes, x: int, y: int) -> np.ndarray | None: ...
+    async def segment(self, frame: np.ndarray, frame_jpeg: bytes, x: int, y: int, more: tuple[tuple[int, int], ...] = ()) -> np.ndarray | None:
+        """Mask of the object at (x, y); `more` adds positive points on the same object."""
+        ...
 
 
 class Grounder(Protocol):
@@ -50,7 +52,7 @@ class Adapters:
 
 
 class FakeSegmenter:
-    async def segment(self, frame, frame_jpeg, x, y):
+    async def segment(self, frame, frame_jpeg, x, y, more=()):
         return await asyncio.to_thread(vision.flood_mask, frame, x, y)
 
 
@@ -87,9 +89,10 @@ class LiveSegmenter:
     def __init__(self, api: MetaModelAPI, ledger: SpendLedger, cache: DevCache) -> None:
         self.api, self.ledger, self.cache = api, ledger, cache
 
-    async def segment(self, frame, frame_jpeg, x, y):
+    async def segment(self, frame, frame_jpeg, x, y, more=()):
         h, w = frame.shape[:2]
-        prompt = sam.build_object_prompt(size=(w, h), objects=[sam.PromptObject(id=1, prompts=[sam.FramePrompt(points=[sam.PromptPoint(x, y)])])])
+        points = [sam.PromptPoint(x, y), *(sam.PromptPoint(px, py) for px, py in more)]
+        prompt = sam.build_object_prompt(size=(w, h), objects=[sam.PromptObject(id=1, prompts=[sam.FramePrompt(points=points)])])
         key = request_key("sam-3.1", prompt, frame_jpeg)
         events = self.cache.get_json(key)
         if events is None:

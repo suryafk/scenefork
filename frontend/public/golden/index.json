@@ -10,6 +10,18 @@
      "manifest": "test_street/0/manifest.json"
     }
    ]
+  },
+  {
+   "clip_id": "desk_01",
+   "title": "Desk (AI-generated)",
+   "forks": [
+    {
+     "fork_index": 0,
+     "t_fork": 1.5,
+     "manifest": "desk_01/0/manifest.json"
+    }
+   ],
+   "video": "desk_01/clip.mp4"
   }
  ]
 }
