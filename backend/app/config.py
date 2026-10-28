@@ -29,7 +29,7 @@ class Settings:
     model_api_key: str = ""
     model_api_base: str = "https://api.meta.ai/v1"
     #: Hard cap for live calls, checked before every call (CLAUDE.md credit budget).
-    spend_cap_usd: float = 10.0
+    spend_cap_usd: float = 75.0
     spend_dir: Path = BACKEND_DIR / ".spend"
     #: Replay identical live requests from disk instead of paying again.
     dev_cache: bool = True
@@ -51,7 +51,7 @@ def load_settings() -> Settings:
     return Settings(
         adapters=os.environ.get("SCENEFORK_ADAPTERS", "fake"),
         model_api_key=os.environ.get("MODEL_API_KEY", ""),
-        spend_cap_usd=float(os.environ.get("SPEND_CAP_USD", "10")),
+        spend_cap_usd=float(os.environ.get("SPEND_CAP_USD", "75")),
         dev_cache=os.environ.get("SCENEFORK_DEV_CACHE", "1") == "1",
         demo_token=token,
         # Stable across restarts when a demo token exists, so signed asset URLs survive a reload.

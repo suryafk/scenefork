@@ -33,7 +33,6 @@
       "runtimeExecutable": "env",
       "runtimeArgs": [
         "SCENEFORK_ADAPTERS=live",
-        "SPEND_CAP_USD=1",
         "uv",
         "--directory",
         "backend",

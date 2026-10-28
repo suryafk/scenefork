@@ -19,10 +19,10 @@ Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude
 
 ## Meta Model API credit budget
 
-The whole project has **$150 of Model API credit**, and it must last through the final demo recording. Spend as little as possible.
+The whole project has **$150 of Model API credit**, and it must last through the final demo recording. **Up to $75 of it may go to development** (evals, golden-clip exports, live checks; raised by the user on 2026-10-28). The rest is kept for the demo recording. Spend freely within that, but never wastefully.
 
 - **No live calls in tests.** Unit, integration and E2E tests use fake adapters. Live calls happen only in `scripts/` probes, evals and manual runs.
-- **Ask before any batch of more than 20 live calls** (evals, golden-clip export, load tests), and state the estimated cost first.
+- **Ask before any single batch estimated at over $5** (an eval run, a big export), and state the estimate first. Smaller live runs go ahead without asking; report their cost afterwards.
 - **Cache every live response on disk during development**, keyed by a hash of the request, and replay it on a repeat. Never re-pay for the same frame, click or prompt.
 - **Cheapest settings that work:**
   - `muse-spark-1.3` in Standard mode with `reasoning_effort="minimal"`; raise it only when an eval shows it's needed.
@@ -31,7 +31,7 @@ The whole project has **$150 of Model API credit**, and it must last through the
   - SAM on images only, never video (video bills a 50-frame minimum per request).
   - One Muse Image edit per plate.
 - **Never use `*-contributor` models,** even though they're cheaper, because Meta trains on what you send.
-- **Every backend model call goes through the spend guard** (`backend` SpendLedger): it logs an estimated cost per call to `backend/.spend/ledger.jsonl` and refuses calls once `SPEND_CAP_USD` (default 10 for development) is reached.
+- **Every backend model call goes through the spend guard** (`backend` SpendLedger): it logs an estimated cost per call to `backend/.spend/ledger.jsonl` and refuses calls once `SPEND_CAP_USD` (default 75, the development allowance; it counts the ledger's all-time total) is reached.
 
 Unit prices (docs/model-probe.md):
 

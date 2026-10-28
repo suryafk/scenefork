@@ -69,7 +69,7 @@ __sfDebug.verifier.verify({ snapshot: s, ruleId: 'loop', seed: 1, bindings: { th
 
 ## 4. Recording checklist
 
-- [ ] `SCENEFORK_ADAPTERS=live` and `SPEND_CAP_USD=2` in `backend/.env`; backend and frontend running; the header says "live models".
+- [ ] `SCENEFORK_ADAPTERS=live` in `backend/.env` (the spend cap counts all-time spend; for the recording, raise `SPEND_CAP_USD` to the full $150 if development used most of its $75); backend and frontend running; the header says "live models".
 - [ ] Chrome desktop (voice needs Web Speech); mic permission granted once before recording; sound on.
 - [ ] Browser zoom 100%, window 1440x900 or larger, notifications off, bookmarks bar hidden.
 - [ ] Rehearse each voice command once live. Repeat takes then replay Muse Spark's answers from the dev cache for free, and the result is identical.
