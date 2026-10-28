@@ -5,6 +5,7 @@ import { Hud, type HudStats } from './components/Hud';
 import { VideoPanel } from './components/VideoPanel';
 import { VoiceBar } from './components/VoiceBar';
 import { ForkController, captureFrame } from './fork/ForkController';
+import { GoldenController, StaticGoldenSource, type GoldenClip } from './golden/GoldenController';
 import { BackendClient, demoKey, type ConnStatus } from './net/BackendClient';
 import { SceneRenderer } from './render/SceneRenderer';
 import { HEIGHT, WIDTH, paintFullFrame, paintPlate, syntheticManifest } from './scene/syntheticScene';
@@ -19,13 +20,14 @@ const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? 
 const CODEGEN_TIMEOUT_MS = 30_000;
 const LOG_LINES = 5;
 
-type Mode = 'demo' | 'fork';
+type Mode = 'demo' | 'fork' | 'golden';
 
 interface Engine {
   renderer: SceneRenderer;
   physics: PhysicsClient;
   backend: BackendClient;
   fork: ForkController;
+  golden: GoldenController;
   rules: RuleController;
   tracker: DeicticTracker;
   voice: VoiceCapture;
@@ -50,6 +52,7 @@ export function App() {
   const [transcript, setTranscript] = useState('');
   const [building, setBuilding] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
+  const [goldenClips, setGoldenClips] = useState<GoldenClip[]>([]);
 
   useEffect(() => {
     const host = hostRef.current!;
@@ -76,6 +79,7 @@ export function App() {
 
     // The worker and socket handlers reach the controllers through these bindings.
     let fork: ForkController | null = null;
+    let golden: GoldenController | null = null;
     const physics = new PhysicsClient({
       ready: (ids, geometry) => {
         labels.clear();
@@ -87,7 +91,8 @@ export function App() {
       added: (id, geometry) => {
         trace('[physics] added', id);
         bodies++;
-        fork?.added(id, geometry);
+        if (golden?.active) golden.added(id, geometry);
+        else fork?.added(id, geometry);
       },
       frame: (frame) => {
         renderer.pushFrame(frame.buf);
@@ -99,7 +104,9 @@ export function App() {
         }
       },
       grab: (g) => {
-        if (g.id === null && modeRef.current === 'fork') fork?.click(g.x, g.y);
+        if (g.id !== null) return;
+        if (modeRef.current === 'fork') fork?.click(g.x, g.y);
+        else if (modeRef.current === 'golden') golden?.click(g.x, g.y);
       },
       rules: (active, events, logs) => {
         setRules(active);
@@ -156,6 +163,9 @@ export function App() {
       spend: (total, cap) => (spend = { total, cap }),
       lastTiming: (ms) => (lastFreeMs = ms),
     });
+    golden = new GoldenController(renderer, physics, { toast: showToast, label: (id, label) => labels.set(id, label) });
+    const goldenController = golden;
+    void StaticGoldenSource.clips().then((clips) => !disposed && setGoldenClips(clips));
     const ruleController = new RuleController({
       physics,
       verify: (req) => verifier.verify(req),
@@ -205,7 +215,7 @@ export function App() {
         renderer.destroy();
         return;
       }
-      engineRef.current = { renderer, physics, backend, fork: controller, rules: ruleController, tracker, voice };
+      engineRef.current = { renderer, physics, backend, fork: controller, golden: goldenController, rules: ruleController, tracker, voice };
       if (import.meta.env.DEV) {
         // Browser-driven checks: commands without a mic, and raw access for sandbox failure tests.
         Object.assign(window, { __sfCommand: (t: string) => runCommand(t, tracker.dwell(performance.now() - 3000)), __sfDebug: { physics, verifier } });
@@ -280,6 +290,7 @@ export function App() {
     modeRef.current = 'demo';
     setMode('demo');
     e.fork.reset();
+    e.golden.reset();
     e.renderer.reset(WIDTH, HEIGHT, paintPlate());
     e.physics.load(syntheticManifest);
   };
@@ -289,7 +300,20 @@ export function App() {
     if (!e) return;
     modeRef.current = 'fork';
     setMode('fork');
+    e.golden.reset();
     void e.fork.start(frame, clipHash, tFork);
+  };
+
+  const startGolden = (clip: GoldenClip, manifestPath: string) => {
+    const e = engineRef.current;
+    if (!e) return;
+    modeRef.current = 'golden';
+    setMode('golden');
+    e.fork.reset();
+    e.golden.start(manifestPath).catch((err: Error) => {
+      if (err.message === 'superseded') return;
+      setToast(`Couldn't load ${clip.title}: ${err.message}`);
+    });
   };
 
   const submitTyped = (text: string) => {
@@ -328,7 +352,11 @@ export function App() {
       <header className="bar">
         <h1>SceneFork</h1>
         <span className="sub">
-          {mode === 'demo' ? 'Offline demo street · drag and throw anything' : 'Live fork · click an object to pull it out, then throw it'}
+          {mode === 'demo'
+            ? 'Offline demo street · drag and throw anything'
+            : mode === 'golden'
+              ? 'Golden clip · click an object to pull it out, then throw it'
+              : 'Live fork · click an object to pull it out, then throw it'}
         </span>
       </header>
       <VideoPanel
@@ -338,6 +366,8 @@ export function App() {
         onForkVideo={(video, hash) => startFork(captureFrame(video, video.videoWidth, video.videoHeight), hash, video.currentTime)}
         onForkDemoStreet={() => startFork(paintFullFrame(), 'synthetic_street_01', 0)}
         onBackToDemo={backToDemo}
+        goldenClips={goldenClips}
+        onForkGolden={startGolden}
       />
       <section className="stage">
         <div ref={hostRef} className="canvas-host" />

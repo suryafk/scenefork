@@ -84,6 +84,12 @@ export class SceneRenderer {
     old?.destroy(true);
   }
 
+  /** Golden clips: stack an object's pre-cleaned background patch (alpha-edged) onto the plate. */
+  pastePatch(patch: CanvasImageSource, bbox: { x: number; y: number; w: number; h: number }): void {
+    this.plateCanvas.getContext('2d')!.drawImage(patch, bbox.x, bbox.y, bbox.w, bbox.h);
+    this.plateTexture?.source.update();
+  }
+
   /** The current plate, for re-sending after a backend restart (it has freed objects removed). */
   get plate(): HTMLCanvasElement {
     return this.plateCanvas;

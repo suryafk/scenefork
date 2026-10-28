@@ -22,3 +22,7 @@ backend/scripts/probe_out/
 # local spend ledger and dev response cache
 backend/.spend/
 backend/.cache/
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/

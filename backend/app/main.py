@@ -95,13 +95,17 @@ def create_app(settings: Settings | None = None, adapters: Adapters | None = Non
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket, k: str = Query("")) -> None:
         origin = ws.headers.get("origin")
+        refuse = None
         if origin and origin not in backend.settings.allowed_origins:
-            await ws.close(code=WS_FORBIDDEN_ORIGIN)
-            return
-        if backend.settings.demo_token and k != backend.settings.demo_token:
-            await ws.close(code=WS_UNAUTHORIZED)
-            return
+            refuse = WS_FORBIDDEN_ORIGIN
+        elif backend.settings.demo_token and k != backend.settings.demo_token:
+            refuse = WS_UNAUTHORIZED
+        # Accept, then close: closing during the handshake reaches the browser as a bare 1006,
+        # so it couldn't tell "demo key required" from a network drop and would retry forever.
         await ws.accept()
+        if refuse is not None:
+            await ws.close(code=refuse)
+            return
         await Session(backend, ws).run()
 
     return app

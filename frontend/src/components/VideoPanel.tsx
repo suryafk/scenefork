@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { StaticGoldenSource, type GoldenClip } from '../golden/GoldenController';
 
 interface Props {
   backendLive: boolean | null;
@@ -7,6 +8,9 @@ interface Props {
   onForkDemoStreet: () => void;
   onBackToDemo: () => void;
   forking: boolean;
+  goldenClips: GoldenClip[];
+  /** Open a golden fork point (static files, no backend). */
+  onForkGolden: (clip: GoldenClip, manifestPath: string) => void;
 }
 
 const MAX_BYTES = 200 * 1024 * 1024;
@@ -23,17 +27,28 @@ async function clipHash(file: File): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 24);
 }
 
-export function VideoPanel({ backendLive, status, onForkVideo, onForkDemoStreet, onBackToDemo, forking }: Props) {
+export function VideoPanel({ backendLive, status, onForkVideo, onForkDemoStreet, onBackToDemo, forking, goldenClips, onForkGolden }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [src, setSrc] = useState<string | null>(null);
   const [hash, setHash] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
+  /** The golden clip playing in the video element, if any: Fork snaps to its fork points. */
+  const [golden, setGolden] = useState<GoldenClip | null>(null);
+
+  const openGolden = (clip: GoldenClip) => {
+    setProblem(null);
+    if (!clip.video) return onForkGolden(clip, clip.forks[0].manifest);
+    if (src?.startsWith('blob:')) URL.revokeObjectURL(src);
+    setSrc(StaticGoldenSource.url(clip.video));
+    setGolden(clip);
+  };
 
   const pick = async (file: File | undefined) => {
     setProblem(null);
     if (!file) return;
     if (file.size > MAX_BYTES) return setProblem('That file is over 200 MB. Trim it to a short clip first.');
-    if (src) URL.revokeObjectURL(src);
+    if (src?.startsWith('blob:')) URL.revokeObjectURL(src);
+    setGolden(null);
     setSrc(URL.createObjectURL(file));
     setHash(await clipHash(file));
   };
@@ -49,6 +64,11 @@ export function VideoPanel({ backendLive, status, onForkVideo, onForkDemoStreet,
           Fork the demo street
         </button>
         <button onClick={onBackToDemo}>Back to offline demo</button>
+        {goldenClips.map((c) => (
+          <button key={c.clip_id} className="golden-btn" onClick={() => openGolden(c)} title="Pre-exported clip: plays from static files">
+            ★ {c.title}
+          </button>
+        ))}
         <span className={`conn conn-${status}`}>
           backend: {status}
           {backendLive !== null && ` · ${backendLive ? 'live models' : 'fake models (free)'}`}
@@ -70,11 +90,16 @@ export function VideoPanel({ backendLive, status, onForkVideo, onForkDemoStreet,
           />
           <button
             className="fork-btn"
-            disabled={forking || !hash}
+            disabled={forking || (!hash && !golden)}
             onClick={() => {
               const v = videoRef.current;
               if (!v || !v.videoWidth) return setProblem("This video hasn't loaded yet.");
               v.pause();
+              if (golden) {
+                const f = StaticGoldenSource.nearestFork(golden, v.currentTime);
+                v.currentTime = f.t_fork;
+                return onForkGolden(golden, f.manifest);
+              }
               onForkVideo(v, hash);
             }}
           >

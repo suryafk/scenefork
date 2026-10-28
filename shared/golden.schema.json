@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scenefork/golden.schema.json",
+  "title": "GoldenFork",
+  "description": "One pre-exported fork point of a golden clip (eng review OV1): played from static files with no backend. Written by backend/scripts/export_golden.py, read by the frontend's StaticGoldenSource.",
+  "type": "object",
+  "properties": {
+    "clip_id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "title": { "type": "string" },
+    "fork_index": { "type": "integer", "minimum": 0 },
+    "t_fork": { "type": "number", "minimum": 0 },
+    "width": { "type": "integer", "minimum": 16 },
+    "height": { "type": "integer", "minimum": 16 },
+    "pixels_per_meter": { "type": "number", "minimum": 30, "maximum": 600 },
+    "ground_material": { "enum": ["hollow_metal", "solid_metal", "glass", "ceramic", "wood", "rubber", "plastic", "flesh_cloth", "concrete", "water"] },
+    "frame": { "type": "string" },
+    "objects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+          "click": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 },
+          "label": { "type": "string" },
+          "polygon_px": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 64,
+            "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+          },
+          "sprite": { "type": "string" },
+          "sprite_bbox": { "$ref": "#/$defs/bbox" },
+          "patch": { "type": "string" },
+          "patch_bbox": { "$ref": "#/$defs/bbox" },
+          "plate_method": { "type": "string" },
+          "grounding": { "type": "object" }
+        },
+        "required": ["id", "label", "polygon_px", "sprite", "sprite_bbox", "patch", "patch_bbox", "grounding"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["clip_id", "title", "fork_index", "t_fork", "width", "height", "pixels_per_meter", "ground_material", "frame", "objects"],
+  "additionalProperties": false,
+  "$defs": {
+    "bbox": {
+      "type": "object",
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "w": { "type": "number", "exclusiveMinimum": 0 }, "h": { "type": "number", "exclusiveMinimum": 0 } },
+      "required": ["x", "y", "w", "h"],
+      "additionalProperties": false
+    }
+  }
+}

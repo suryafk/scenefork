@@ -14,7 +14,8 @@ Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude
 - Contract fixtures in `shared/fixtures/` are checked by both stacks (`backend/tests/test_contracts.py`, `frontend/src/contracts.test.ts`).
 - In dev builds, `window.__sfTrace` holds the fork/physics/rules event trace, for browser-driven checks. `window.__sfCommand('slingshot the truck')` runs a voice command without a mic, and `window.__sfDebug` exposes the physics and verifier clients (for example, load a looping plugin to check the watchdog).
 - The fake backend's MutatorAgent knows four commands (slingshot, spin, sideways gravity, heavy); anything else comes back as "not possible". Real codegen needs `SCENEFORK_ADAPTERS=live`.
-- Playwright E2E is built after the first end-to-end golden demo works (eng review OV12).
+- Playwright E2E (golden clip, live fork, presets, codegen, demo key): `pnpm --dir frontend e2e`. It starts its own fake-model backend on 8001 and frontend on 5174, and uses the installed Google Chrome (no Playwright browser download).
+- Golden clips: `cd backend && uv run python scripts/export_golden.py --help`. Output goes to `frontend/public/golden/` (format: `shared/golden.schema.json`). Runbook and shot list: `docs/demo-runbook.md`.
 
 ## Meta Model API credit budget
 

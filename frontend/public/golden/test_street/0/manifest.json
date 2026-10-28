@@ -1,0 +1,215 @@
+{
+ "clip_id": "test_street",
+ "title": "Test street (fake models)",
+ "fork_index": 0,
+ "t_fork": 0.0,
+ "width": 1280,
+ "height": 720,
+ "pixels_per_meter": 100.0,
+ "ground_material": "concrete",
+ "frame": "frame.jpg",
+ "objects": [
+  {
+   "id": "obj_1",
+   "click": [
+    450,
+    420
+   ],
+   "label": "object",
+   "polygon_px": [
+    [
+     381,
+     382
+    ],
+    [
+     381,
+     529
+    ],
+    [
+     408,
+     529
+    ],
+    [
+     414,
+     511
+    ],
+    [
+     426,
+     501
+    ],
+    [
+     439,
+     498
+    ],
+    [
+     459,
+     504
+    ],
+    [
+     469,
+     516
+    ],
+    [
+     472,
+     529
+    ],
+    [
+     609,
+     529
+    ],
+    [
+     608,
+     381
+    ]
+   ],
+   "sprite": "obj_1_sprite.webp",
+   "sprite_bbox": {
+    "x": 381,
+    "y": 381,
+    "w": 229,
+    "h": 149
+   },
+   "patch": "obj_1_patch.webp",
+   "patch_bbox": {
+    "x": 362,
+    "y": 362,
+    "w": 267,
+    "h": 199
+   },
+   "plate_method": "fake",
+   "grounding": {
+    "label": "object",
+    "body_type": "dynamic",
+    "mass_kg": 5,
+    "restitution": 0.3,
+    "friction": 0.6,
+    "acoustic_material": "wood",
+    "approx_height_m": 1.49
+   }
+  },
+  {
+   "id": "obj_2",
+   "click": [
+    655,
+    470
+   ],
+   "label": "object",
+   "polygon_px": [
+    [
+     631,
+     447
+    ],
+    [
+     631,
+     483
+    ],
+    [
+     632,
+     484
+    ],
+    [
+     683,
+     484
+    ],
+    [
+     684,
+     483
+    ],
+    [
+     684,
+     447
+    ],
+    [
+     683,
+     446
+    ],
+    [
+     632,
+     446
+    ]
+   ],
+   "sprite": "obj_2_sprite.webp",
+   "sprite_bbox": {
+    "x": 631,
+    "y": 446,
+    "w": 54,
+    "h": 39
+   },
+   "patch": "obj_2_patch.webp",
+   "patch_bbox": {
+    "x": 612,
+    "y": 427,
+    "w": 92,
+    "h": 89
+   },
+   "plate_method": "fake",
+   "grounding": {
+    "label": "object",
+    "body_type": "dynamic",
+    "mass_kg": 5,
+    "restitution": 0.3,
+    "friction": 0.6,
+    "acoustic_material": "wood",
+    "approx_height_m": 0.39
+   }
+  },
+  {
+   "id": "obj_3",
+   "click": [
+    920,
+    530
+   ],
+   "label": "object",
+   "polygon_px": [
+    [
+     919,
+     475
+    ],
+    [
+     885,
+     551
+    ],
+    [
+     883,
+     559
+    ],
+    [
+     957,
+     559
+    ],
+    [
+     955,
+     551
+    ],
+    [
+     921,
+     475
+    ]
+   ],
+   "sprite": "obj_3_sprite.webp",
+   "sprite_bbox": {
+    "x": 883,
+    "y": 475,
+    "w": 75,
+    "h": 85
+   },
+   "patch": "obj_3_patch.webp",
+   "patch_bbox": {
+    "x": 864,
+    "y": 456,
+    "w": 113,
+    "h": 135
+   },
+   "plate_method": "fake",
+   "grounding": {
+    "label": "object",
+    "body_type": "dynamic",
+    "mass_kg": 5,
+    "restitution": 0.3,
+    "friction": 0.6,
+    "acoustic_material": "wood",
+    "approx_height_m": 0.85
+   }
+  }
+ ]
+}

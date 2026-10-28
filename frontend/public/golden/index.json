@@ -1,0 +1,15 @@
+{
+ "clips": [
+  {
+   "clip_id": "test_street",
+   "title": "Test street (fake models)",
+   "forks": [
+    {
+     "fork_index": 0,
+     "t_fork": 0.0,
+     "manifest": "test_street/0/manifest.json"
+    }
+   ]
+  }
+ ]
+}

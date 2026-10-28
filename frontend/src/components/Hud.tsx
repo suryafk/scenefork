@@ -19,7 +19,7 @@ interface Props {
   stats: HudStats;
   xray: boolean;
   muted: boolean;
-  mode: 'demo' | 'fork';
+  mode: 'demo' | 'fork' | 'golden';
   rules: RuleInfo[];
   log: MutatorLogEntry[];
   onToggleXray: () => void;
@@ -50,7 +50,7 @@ export function Hud({ stats, xray, muted, mode, rules, log, onToggleXray, onTogg
         <button onClick={onToggleMute} aria-pressed={!muted}>
           Sound {muted ? 'off' : 'on'} <kbd>M</kbd>
         </button>
-        <button onClick={onReset}>{mode === 'demo' ? <>Reset <kbd>R</kbd></> : 'Leave fork'}</button>
+        <button onClick={onReset}>{mode === 'demo' ? <>Reset <kbd>R</kbd></> : mode === 'golden' ? 'Leave clip' : 'Leave fork'}</button>
       </div>
       {rules.length > 0 && (
         <div className="hud-panel rules">
