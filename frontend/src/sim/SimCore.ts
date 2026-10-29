@@ -43,6 +43,8 @@ const DRAG_STIFFNESS = 12;
 const MAX_DRAG_SPEED = 30;
 const MAX_THROW_SPEED = 25;
 const HELD_ANGULAR_DAMPING = 6;
+/** A press this close outside a body still grabs it: hulls are simplified, the sprite's edge isn't. */
+const GRAB_SLOP_PX = 10;
 /** Steps a spawn-overlapping pair must stay apart before it collides normally. */
 const OVERLAP_CLEAR_STEPS = 10;
 const MIN_IMPACT_SPEED = 0.8;
@@ -560,9 +562,22 @@ export class SimCore {
     for (const r of this.recs.values()) {
       if (r.dynamic && (!rec || r.spec.z_index > rec.spec.z_index) && r.colliders.some((c) => c.containsPoint(p))) rec = r;
     }
+    let at = p;
+    if (!rec) {
+      // Nothing under the pointer: the nearest body within the slop, held at its closest edge point.
+      let best = GRAB_SLOP_PX / this.ppm;
+      for (const r of this.recs.values()) {
+        if (!r.dynamic) continue;
+        for (const c of r.colliders) {
+          const proj = c.projectPoint(p, true);
+          const d = proj ? Math.hypot(proj.point.x - p.x, proj.point.y - p.y) : Infinity;
+          if (d <= best) [best, rec, at] = [d, r, { x: proj!.point.x, y: proj!.point.y }];
+        }
+      }
+    }
     if (!rec) return null;
     const t = rec.body.translation();
-    this.startHold(rec, rotate({ x: p.x - t.x, y: p.y - t.y }, -rec.body.rotation()), p);
+    this.startHold(rec, rotate({ x: at.x - t.x, y: at.y - t.y }, -rec.body.rotation()), p);
     return rec.id;
   }
 

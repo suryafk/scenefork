@@ -221,6 +221,7 @@ export class ForkController {
         clearTimeout(p.timer);
         this.inFlight.delete(m.req_id);
         this.renderer.endRing(p.ring, true);
+        // already_freed: a press on a freed object that just missed its body; the ring is enough.
         if (m.reason === 'no_object') this.events.toast("Couldn't grab that, try another spot.");
         else if (m.reason === 'spend_cap') this.events.toast('Model API spend cap reached. Raise SPEND_CAP_USD in backend/.env to keep going.');
         else if (m.reason === 'error') this.events.toast('The model call failed. Try again.');

@@ -74,6 +74,14 @@ describe('own floors', () => {
     sim.free();
   });
 
+  it('grabs a body from a press just outside its edge, but not from farther away', () => {
+    const sim = new SimCore(scene([entity('mug', box(600, 300, 60, 60), 0.4)]));
+    expect(sim.grab(667, 330)).toBe('mug'); // 7 px right of the edge
+    sim.release();
+    expect(sim.grab(690, 330)).toBeNull();
+    sim.free();
+  });
+
   it('gives no own floor to an object resting on another, so it falls when the supporter leaves', () => {
     const sim = new SimCore(syntheticManifest);
     expect(sim.floorActive('bottle')).toBe(false);

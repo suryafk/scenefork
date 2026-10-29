@@ -1,5 +1,6 @@
 """WebSocket protocol end to end with fake adapters (no credits)."""
 
+import asyncio
 from dataclasses import replace
 
 import pytest
@@ -7,7 +8,10 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from app import contracts, vision
+from app.adapters import FakeInpainter, build_adapters
+from app.devcache import DevCache
 from app.main import create_app
+from app.spend import SpendLedger
 from tests.conftest import street_scene
 
 ORIGIN = {"origin": "http://localhost:5173"}
@@ -74,6 +78,33 @@ def test_second_free_runs_on_the_updated_plate(settings):
         ws.send_json({"type": "free", "req_id": "r2", "fork_id": forked["fork_id"], "x": 920, "y": 540})
         freed, _ = recv_until(ws, "freed")
         assert freed["req_id"] == "r2" and freed["entity"]["id"] == "obj_2"
+
+
+class SlowInpainter:
+    """The fake inpaint, landing late like Muse Image does live (10-20 s)."""
+
+    async def remove(self, plate, region, label):
+        await asyncio.sleep(0.5)
+        return await FakeInpainter().remove(plate, region, label)
+
+
+def test_clicking_a_freed_object_before_its_inpaint_does_not_duplicate_it(settings):
+    adapters = replace(build_adapters(settings, SpendLedger(settings.spend_dir, 1.0), DevCache(settings.cache_dir, False)), inpainter=SlowInpainter())
+    with TestClient(create_app(settings, adapters)).websocket_connect("/ws", headers=ORIGIN) as ws:
+        ws.receive_json()
+        forked = fork(ws)
+        ws.send_json({"type": "free", "req_id": "r1", "fork_id": forked["fork_id"], "x": 450, "y": 420})
+        recv_until(ws, "freed")
+        # The plate still shows the truck: the same spot must not free it a second time.
+        ws.send_json({"type": "free", "req_id": "r2", "fork_id": forked["fork_id"], "x": 450, "y": 420})
+        failed, seen = recv_until(ws, "free_failed")
+        assert failed["reason"] == "already_freed" and failed["req_id"] == "r2"
+        assert not [m for m in seen if m["type"] == "freed"]
+        # Once it's painted out, the spot is ordinary background again (it may hide another object).
+        recv_until(ws, "plate")
+        ws.send_json({"type": "free", "req_id": "r3", "fork_id": forked["fork_id"], "x": 450, "y": 420})
+        reply, _ = recv_until(ws, "free_failed")
+        assert reply["reason"] == "no_object"
 
 
 def test_clicking_the_sky_fails_cleanly(settings):

@@ -16,7 +16,7 @@ server → client
   {"type": "hello", "live", "voice"}                         on connect; voice: Muse Voice available
   {"type": "forked", "req_id", "fork_id", "width", "height"}
   {"type": "freed", "req_id", "fork_id", "entity", "timing_ms"}  entity: shared/entity.schema.json
-  {"type": "free_failed", "req_id", "fork_id", "reason", "message"}  reason: no_object | spend_cap | error
+  {"type": "free_failed", "req_id", "fork_id", "reason", "message"}  reason: no_object | already_freed | spend_cap | error
   {"type": "grounded", "fork_id", "entity_id", "grounding"}  grounding: shared/grounding.schema.json
   {"type": "plate", "fork_id", "entity_id", "version", "url", "method"}
   {"type": "codegen_result", "req_id", "attempt", "plugin", "problems", "ms", "cached"}
@@ -59,6 +59,8 @@ MODEL_VOICE = "muse-voice-transcribe-1.0"
 MAX_FRAME_SIDE = 1280
 WS_UNAUTHORIZED = 4401
 WS_FORBIDDEN_ORIGIN = 4403
+#: A new outline this much inside already-freed pixels is the same object clicked again.
+DUPLICATE_OVERLAP = 0.5
 
 
 class Backend:
@@ -323,6 +325,11 @@ class Session:
         def failed(reason: str, message: str = "") -> dict:
             return {"type": "free_failed", "req_id": req_id, "fork_id": fork_id, "reason": reason, "message": message}
 
+        taken = fork.taken
+        if taken is not None and taken[y, x]:
+            # A click on an object that is already free (its body missed the pointer): no model call.
+            await self.send(failed("already_freed"))
+            return
         t0 = time.perf_counter()
         try:
             plate_jpeg = await asyncio.to_thread(vision.encode_jpeg, fork.plate, 90)
@@ -341,15 +348,30 @@ class Session:
             self.cancelled.discard(req_id)
             await self.send(failed("cancelled"))
             return
+        taken = fork.taken
+        if mask is not None and taken is not None:
+            # Mostly an object that's already free (a click on its edge): not a new one.
+            if (mask & taken).sum() > DUPLICATE_OVERLAP * max(int(mask.sum()), 1):
+                await self.send(failed("already_freed"))
+                await self.send_spend()
+                return
+            mask = mask & ~taken  # a neighbor's outline may include part of a freed object
         # OpenCV work runs off the event loop so sockets and asset downloads stay responsive.
         obj = await asyncio.to_thread(vision.compile_object, fork.plate, mask) if mask is not None else None
         if obj is None:
             await self.send(failed("no_object"))
             await self.send_spend()
             return
+        # Checked again with no await before the update: two clicks on one object may both be in flight.
+        taken = fork.taken
+        if taken is not None and (obj.mask & taken).sum() > DUPLICATE_OVERLAP * obj.area_px:
+            await self.send(failed("already_freed"))
+            await self.send_spend()
+            return
 
         entity_id = f"obj_{fork.next_object}"
         fork.next_object += 1
+        fork.unpainted[entity_id] = obj.mask
         sprite_id = f"sprite_{entity_id}.webp"
         fork.assets[sprite_id] = (obj.sprite_webp, "image/webp")
         d = contracts.defaults_for(None)
@@ -446,7 +468,11 @@ class Session:
 
     async def inpaint(self, fork: Fork, entity_id: str, obj: vision.CompiledObject) -> None:
         async with fork.inpaint_lock:
-            result = await self.b.adapters.inpainter.remove(fork.plate, obj.inpaint_mask, None)
+            try:
+                result = await self.b.adapters.inpainter.remove(fork.plate, obj.inpaint_mask, None)
+            finally:
+                # Painted out (or failed): either way it's no longer a duplicate hazard to block.
+                fork.unpainted.pop(entity_id, None)
             fork.plate = result.plate
             fork.plate_version += 1
             plate_id = f"plate_{fork.plate_version}.webp"

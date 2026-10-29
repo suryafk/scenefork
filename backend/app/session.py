@@ -22,11 +22,19 @@ class Fork:
     plate: np.ndarray
     plate_version: int = 0
     next_object: int = 1
+    #: Masks of freed objects whose inpaint hasn't landed: the plate still shows them (10-20 s
+    #: live), so without this a second click on one would free a duplicate.
+    unpainted: dict[str, np.ndarray] = field(default_factory=dict)
     assets: dict[str, tuple[bytes, str]] = field(default_factory=dict)
     #: Inpaints run one at a time per fork, each on the current plate (design step 6).
     inpaint_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     created: float = field(default_factory=time.monotonic)
     last_used: float = field(default_factory=time.monotonic)
+
+    @property
+    def taken(self) -> np.ndarray | None:
+        """Pixels of objects already freed but still on the plate."""
+        return np.logical_or.reduce(list(self.unpainted.values())) if self.unpainted else None
 
     @property
     def size(self) -> tuple[int, int]:

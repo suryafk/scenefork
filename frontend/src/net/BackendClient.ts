@@ -20,7 +20,7 @@ export type ServerMsg =
   | { type: 'voice_failed'; req_id: string; reason: 'unavailable' | 'spend_cap' | 'error'; message: string }
   | { type: 'forked'; req_id: string; fork_id: string; width: number; height: number }
   | { type: 'freed'; req_id: string; fork_id: string; entity: FreedEntity; timing_ms: { segment: number; compile: number } }
-  | { type: 'free_failed'; req_id: string; fork_id: string; reason: 'no_object' | 'spend_cap' | 'error' | 'cancelled'; message: string }
+  | { type: 'free_failed'; req_id: string; fork_id: string; reason: 'no_object' | 'already_freed' | 'spend_cap' | 'error' | 'cancelled'; message: string }
   | { type: 'grounded'; fork_id: string; entity_id: string; grounding: Grounding }
   | { type: 'plate'; fork_id: string; entity_id: string; version: number; url: string; method: string }
   | { type: 'codegen_result'; req_id: string; attempt: number; plugin: PluginDoc; problems: string[]; ms: number; cached: boolean }
