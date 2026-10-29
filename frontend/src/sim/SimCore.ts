@@ -207,6 +207,8 @@ export class SimCore {
   private logs: string[] = [];
   private timeScale = 1;
   readonly random: () => number;
+  /** Set while restore() reloads presets onto bodies that already have their velocities. */
+  private replaying = false;
   /** Rule whose hook is running right now; the worker reports it so the watchdog can name a culprit. */
   running: string | null = null;
   /** Called as a plugin hook starts (the live worker posts it before a possible freeze). */
@@ -265,7 +267,10 @@ export class SimCore {
       rec.floorActive = rec.floorActive && b.floorActive;
     }
     sim.world.propagateModifiedBodyPositionsToColliders();
+    // The bodies already carry the velocities a float gave them: don't push them again.
+    sim.replaying = true;
     for (const p of snap.presets) sim.loadRule(p);
+    sim.replaying = false;
     for (const [id, g] of snap.pending ?? []) sim.patch(id, g);
     sim.ruleEvents = [];
     return sim;
@@ -323,10 +328,12 @@ export class SimCore {
         if (other !== rec && other.floorActive && this.restsOn(other, rec)) other.supporters.push(rec);
       }
     }
-    // Scene-wide presets ("make everything bouncy") cover objects freed after them too.
+    // Scene-wide presets ("make everything bouncy") cover objects freed after them too, and an
+    // object freed into zero gravity floats off like the rest instead of sitting on its floor.
     for (const rule of this.rules) {
       if (rule.def.kind !== 'preset' || rule.def.targets !== null || !rec.dynamic) continue;
       for (const w of rule.def.writes) if (w.field.startsWith('entity:*.')) this.write(rule, entityKey(rec.id, w.field.slice(9)), w.value);
+      if (rule.def.float) this.floatOff([rec.id], rule.def.float);
     }
     return this.geometryOf(rec);
   }
@@ -805,6 +812,7 @@ export class SimCore {
    * on-screen pixels per second, so a close-up desk and a street float at the same pace.
    */
   private floatOff(ids: string[], n: FloatNudge): void {
+    if (this.replaying) return;
     const k = 1 / this.ppm;
     for (const id of ids) {
       const rec = this.recs.get(id);

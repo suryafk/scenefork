@@ -257,6 +257,41 @@ describe('gravity presets', () => {
   });
 });
 
+describe('zero gravity and objects freed later', () => {
+  const box = (x: number, y: number, w: number, h: number): [number, number][] => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+  const spec = (id: string, x: number) => ({
+    id,
+    label: id,
+    body_type: 'dynamic' as const,
+    polygon_px: box(x, 400, 60, 60),
+    physics: { mass_kg: 0.4, restitution: 0.1, friction: 0.8 },
+    acoustic_material: 'wood' as const,
+    z_index: 1,
+  });
+
+  it('floats an object freed after zero gravity is on, without it being touched', () => {
+    const sim = new SimCore({ ...syntheticManifest, entities: [] });
+    sim.loadRule(preset('zero_gravity'));
+    sim.addEntity(spec('mug', 600));
+    const y0 = sim.pose('mug').y;
+    expect(sim.floorActive('mug')).toBe(false);
+    run(sim, 60);
+    expect(sim.pose('mug').y).toBeLessThan(y0 - 10);
+    sim.free();
+  });
+
+  it('a rebuild (rescale) keeps the drift instead of pushing everything again', () => {
+    const sim = new SimCore({ ...syntheticManifest, entities: [] });
+    sim.addEntity(spec('mug', 600));
+    sim.loadRule(preset('zero_gravity'));
+    const vy = sim.entityView('mug')!.vy;
+    const restored = SimCore.restore(sim.snapshot());
+    expect(restored.entityView('mug')!.vy).toBeCloseTo(vy, 5);
+    sim.free();
+    restored.free();
+  });
+});
+
 describe('ctx units', () => {
   it('an impulse of mass * dv changes speed by dv even after mass compression', () => {
     const sim = new SimCore(syntheticManifest);
