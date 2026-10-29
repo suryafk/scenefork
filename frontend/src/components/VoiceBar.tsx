@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PRESETS } from '../sim/rules';
+import type { Suggestion } from '../voice/Suggestions';
 
 const GRAVITY = PRESETS.filter((p) => p.group === 'gravity');
 const G_LABEL: Record<string, string> = { zero_gravity: 'Zero-G', moon_gravity: 'Moon', mars_gravity: 'Mars', earth_gravity: 'Earth', jupiter_gravity: 'Jupiter' };
@@ -18,11 +19,14 @@ interface Props {
   onPreset: (id: string) => void;
   /** The gravity preset in force, if any (highlights its button). */
   activeGravity: string | null;
+  /** Muse Spark's rule ideas for the freed objects. */
+  suggestions: Suggestion[];
+  onSuggestion: (text: string) => void;
 }
 
 const EXAMPLES = ['moon gravity', 'make this bouncy', 'slingshot the truck', 'reset'];
 
-export function VoiceBar({ supported, engine, listening, transcript, building, onHoldStart, onHoldEnd, onSubmit, onPreset, activeGravity }: Props) {
+export function VoiceBar({ supported, engine, listening, transcript, building, onHoldStart, onHoldEnd, onSubmit, onPreset, activeGravity, suggestions, onSuggestion }: Props) {
   const [text, setText] = useState('');
   const submit = () => {
     const t = text.trim();
@@ -66,6 +70,17 @@ export function VoiceBar({ supported, engine, listening, transcript, building, o
           Apply
         </button>
       </form>
+      {suggestions.length > 0 && (
+        <div className="suggestions" role="group" aria-label="Suggested rules">
+          <span>Try</span>
+          {suggestions.map((s) => (
+            <button key={s.text} className={`chip chip-${s.kind}`} disabled={building} onClick={() => onSuggestion(s.text)} title={s.kind === 'rule' ? 'Muse Spark writes and tests a plugin for this' : 'A preset: applies instantly'}>
+              {s.kind === 'rule' && <span className="ai">AI</span>}
+              {s.text}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="gravity" role="group" aria-label="Gravity">
         <span>Gravity</span>
         {GRAVITY.map((p) => {

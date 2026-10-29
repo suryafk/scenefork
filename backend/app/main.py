@@ -9,6 +9,7 @@ client → server
   {"type": "voice_start", "req_id", "keywords"}      then binary PCM frames (16 kHz s16le mono)
   {"type": "voice_end", "req_id"}                      push-to-talk released
   {"type": "codegen", "req_id", "text", "scene", "bindings", "attempt", "previous", "variant"?}
+  {"type": "suggest", "req_id", "entities"}           rule ideas for the freed objects (chips)
                                                        one MutatorAgent call; the browser verifies and
                                                        asks again (attempt 1-2) with the error
 server → client
@@ -21,6 +22,7 @@ server → client
   {"type": "codegen_result", "req_id", "attempt", "plugin", "problems", "ms", "cached"}
                                                              plugin: shared/plugin.schema.json
   {"type": "codegen_failed", "req_id", "reason", "message"}  reason: spend_cap | error | bad_request
+  {"type": "suggestions", "req_id", "suggestions", "cached"}  suggestions: shared/suggestions.schema.json
   {"type": "voice_partial", "req_id", "text"}       Muse Voice's running transcript
   {"type": "voice_final", "req_id", "text", "seconds"}
   {"type": "voice_failed", "req_id", "reason", "message"}  reason: unavailable | spend_cap | error
@@ -45,6 +47,7 @@ from .adapters import Adapters, build_adapters
 from .config import Settings, load_settings
 from .devcache import DevCache
 from .mutator import MAX_ATTEMPT, MAX_COMMAND_CHARS, CodegenRequest
+from .suggest import scene_entities
 from .spend import VOICE_PER_SECOND
 from .voice import BYTES_PER_SECOND, MAX_SECONDS, VOICE_RESERVE, ASRStream, keywords_for
 from .session import AssetSigner, Fork, SessionStore
@@ -189,6 +192,8 @@ class Session:
                     self.spawn(self.on_free(msg))
                 elif kind == "codegen":
                     self.spawn(self.on_codegen(msg))
+                elif kind == "suggest":
+                    self.spawn(self.on_suggest(msg))
                 elif kind == "cancel":
                     self.cancelled.add(str(msg.get("req_id")))
                 else:
@@ -415,6 +420,20 @@ class Session:
             }
         )
         await self.send_spend()
+
+    async def on_suggest(self, msg: dict) -> None:
+        entities = scene_entities(msg.get("entities"))
+        if not entities:
+            await self.send({"type": "suggestions", "req_id": msg.get("req_id"), "suggestions": [], "cached": True})
+            return
+        try:
+            result = await self.b.adapters.suggester.suggest(entities)
+        except Exception as e:  # suggestions are a nicety: fail quietly, the app still works
+            log.warning("suggest failed: %s", e)
+            result = None
+        await self.send({"type": "suggestions", "req_id": msg.get("req_id"), "suggestions": result.suggestions if result else [], "cached": bool(result and result.cached)})
+        if result and not result.cached:
+            await self.send_spend()
 
     async def ground(self, fork: Fork, entity_id: str, frame, obj: vision.CompiledObject) -> None:
         try:

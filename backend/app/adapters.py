@@ -6,7 +6,7 @@ Model API and go through the SpendLedger and DevCache on every call.
 
 import asyncio
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 import meta_sam_parser as sam
@@ -16,6 +16,7 @@ from . import contracts, vision
 from .devcache import DevCache, request_key
 from .metaapi import MetaModelAPI, data_url
 from .mutator import FakeMutator, LiveMutator, Mutator
+from .suggest import FakeSuggester, LiveSuggester, Suggester
 from .voice import LiveTranscriber, Transcriber
 from .spend import IMAGE_PER_EDIT, SAM_PER_IMAGE, SPARK_RESERVE, SpendLedger, spark_cost
 
@@ -49,6 +50,7 @@ class Adapters:
     mutator: Mutator
     #: Muse Voice Transcribe (live only); the browser falls back to Web Speech without it.
     transcriber: Transcriber | None = None
+    suggester: Suggester = field(default_factory=FakeSuggester)
 
 
 # ---------------------------------------------------------------- fakes (free)
@@ -204,4 +206,5 @@ def build_adapters(settings, ledger: SpendLedger, cache: DevCache) -> Adapters:
         live=True,
         mutator=LiveMutator(api, ledger, cache, settings.codegen_effort),
         transcriber=LiveTranscriber(settings.model_api_key, settings.model_api_base),
+        suggester=LiveSuggester(api, ledger, cache, settings.codegen_effort),
     )

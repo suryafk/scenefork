@@ -138,7 +138,8 @@ export class RuleController {
   private applyPreset(preset: Preset, bindings: Bindings, text: string, t0: number, stage: LogStage = 'preset'): void {
     const def = this.presetDef(preset, bindings);
     this.ports.physics.loadRule(def);
-    const on = def.kind === 'preset' && def.targets ? ` on ${def.targets.join(', ')}` : '';
+    const labels = new Map(this.entities().map((e) => [e.id, e.label.replace(/_/g, ' ')]));
+    const on = def.kind === 'preset' && def.targets ? ` on ${def.targets.map((id) => labels.get(id) ?? id).join(', ')}` : '';
     this.ports.log({ id: `cmd_${++this.n}`, text, stage, detail: `${preset.name}${on}`, attempt: 0, ms: Math.round(performance.now() - t0) });
   }
 

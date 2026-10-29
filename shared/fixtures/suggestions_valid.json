@@ -1,0 +1,9 @@
+[
+  { "suggestions": [
+    { "text": "zero gravity", "kind": "preset" },
+    { "text": "slingshot the cactus", "kind": "rule" },
+    { "text": "make the mug ten times heavier", "kind": "rule" },
+    { "text": "spin the stapler when it hits the books", "kind": "rule" }
+  ] },
+  { "suggestions": [{ "text": "moon gravity", "kind": "preset" }] }
+]

@@ -25,6 +25,7 @@ export type ServerMsg =
   | { type: 'plate'; fork_id: string; entity_id: string; version: number; url: string; method: string }
   | { type: 'codegen_result'; req_id: string; attempt: number; plugin: PluginDoc; problems: string[]; ms: number; cached: boolean }
   | { type: 'codegen_failed'; req_id: string; reason: 'spend_cap' | 'error' | 'bad_request'; message: string }
+  | { type: 'suggestions'; req_id: string; suggestions: { text: string; kind: 'preset' | 'rule' }[]; cached: boolean }
   | { type: 'spend'; total_usd: number; cap_usd: number }
   | { type: 'error'; code: string; req_id?: string; fork_id?: string };
 
@@ -108,6 +109,13 @@ export class BackendClient {
   codegen(reqId: string, req: CodegenRequest): boolean {
     if (!this.open) return false;
     this.ws!.send(JSON.stringify({ type: 'codegen', req_id: reqId, ...req }));
+    return true;
+  }
+
+  /** Rule ideas for the freed objects (shown as chips). */
+  suggest(reqId: string, entities: unknown[]): boolean {
+    if (!this.open) return false;
+    this.ws!.send(JSON.stringify({ type: 'suggest', req_id: reqId, entities }));
     return true;
   }
 

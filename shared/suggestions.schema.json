@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scenefork/suggestions.schema.json",
+  "title": "RuleSuggestions",
+  "description": "Rule ideas Muse Spark offers for the objects in the current scene, shown as tappable chips. A chip runs exactly like a spoken command (preset or generated plugin).",
+  "type": "object",
+  "properties": {
+    "suggestions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string", "minLength": 3, "maxLength": 60, "description": "What the user would say, naming objects by their label words." },
+          "kind": { "enum": ["preset", "rule"], "description": "preset: a world-wide change from the preset list; rule: a new behavior to generate." }
+        },
+        "required": ["text", "kind"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["suggestions"],
+  "additionalProperties": false
+}

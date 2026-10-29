@@ -13,7 +13,8 @@ import { PhysicsClient } from './sim/PhysicsClient';
 import { VerifierClient } from './sim/VerifierClient';
 import type { RuleInfo } from './sim/rules';
 import { DeicticTracker } from './voice/DeicticTracker';
-import { RuleController, type CodegenReply, type MutatorLogEntry } from './voice/RuleController';
+import { RuleController, summarize, type CodegenReply, type MutatorLogEntry } from './voice/RuleController';
+import { SuggestionTracker, type Suggestion } from './voice/Suggestions';
 import { MetaVoiceCapture } from './voice/MetaVoiceCapture';
 import { VoiceCapture, type VoiceHandlers } from './voice/VoiceCapture';
 import { PRESETS } from './sim/rules';
@@ -31,6 +32,7 @@ interface Engine {
   fork: ForkController;
   golden: GoldenController;
   rules: RuleController;
+  suggest: SuggestionTracker;
   tracker: DeicticTracker;
   voice: { start(): void; stop(): void; dispose(): void };
 }
@@ -64,6 +66,7 @@ export function App() {
   /** Which speech engine push-to-talk uses: Muse Voice when the backend offers it. */
   const [voiceEngine, setVoiceEngine] = useState<'meta' | 'web'>('web');
   const [goldenClips, setGoldenClips] = useState<GoldenClip[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
   useEffect(() => {
     const host = hostRef.current!;
@@ -169,6 +172,10 @@ export function App() {
           return metaVoice?.final(m.req_id, m.text);
         }
         if (m.type === 'voice_failed') return metaVoice?.failed(m.req_id, m.message);
+        if (m.type === 'suggestions') {
+          trace('[suggest]', m.suggestions.map((s) => s.text), m.cached ? 'cached' : 'new');
+          return suggest.receive(m.req_id, m.suggestions);
+        }
         if (m.type === 'codegen_result' || m.type === 'codegen_failed') {
           trace('[codegen]', m.type, m.req_id, m.type === 'codegen_result' ? { ms: m.ms, cached: m.cached, problems: m.problems } : m.reason);
           pendingCodegen.get(m.req_id)?.(
@@ -181,6 +188,7 @@ export function App() {
       },
       setConn,
     );
+    const suggest = new SuggestionTracker((id, entities) => backend.suggest(id, entities), setSuggestions);
     fork = new ForkController(renderer, physics, backend, {
       toast: showToast,
       label: (id, label) => labels.set(id, label),
@@ -266,7 +274,7 @@ export function App() {
         renderer.destroy();
         return;
       }
-      engineRef.current = { renderer, physics, backend, fork: controller, golden: goldenController, rules: ruleController, tracker, voice };
+      engineRef.current = { renderer, physics, backend, fork: controller, golden: goldenController, rules: ruleController, suggest, tracker, voice };
       if (import.meta.env.DEV) {
         // Browser-driven checks: commands without a mic, and raw access for sandbox failure tests.
         Object.assign(window, { __sfCommand: (t: string) => runCommand(t, tracker.dwell(performance.now() - 3000)), __sfDebug: { physics, verifier, renderer } });
@@ -299,6 +307,8 @@ export function App() {
 
     const statsTimer = setInterval(() => {
       if (!engineRef.current) return;
+      const snap = physics.latestSnapshot;
+      if (snap) suggest.update(summarize(snap).entities);
       setStats({
         fps: Math.round(renderer.app.ticker.FPS),
         stepMs,
@@ -339,6 +349,7 @@ export function App() {
   /** The user switched scenes: drop the old scene's log, transcript and any rule still being built. */
   const clearRules = () => {
     engineRef.current?.rules.newScene();
+    engineRef.current?.suggest.reset();
     setLog([]);
     setTranscript('');
   };
@@ -465,6 +476,11 @@ export function App() {
         onSubmit={submitTyped}
         onPreset={(id) => engineRef.current?.rules.preset(id)}
         activeGravity={activeGravity(rules)}
+        suggestions={suggestions}
+        onSuggestion={(text) => {
+          trace('[suggest] picked', text);
+          submitTyped(text);
+        }}
       />
     </main>
   );

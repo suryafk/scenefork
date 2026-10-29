@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 const shared = resolve(__dirname, '../../shared');
 const load = (p: string) => JSON.parse(readFileSync(resolve(shared, p), 'utf8'));
 
-describe.each(['grounding', 'entity'])('%s contract', (name) => {
+describe.each(['grounding', 'entity', 'plugin', 'suggestions'])('%s contract', (name) => {
   const validate = new Ajv2020({ strict: false }).compile(load(`${name}.schema.json`));
   it('accepts every valid fixture', () => {
     for (const doc of load(`fixtures/${name}_valid.json`)) expect(validate(doc), JSON.stringify(validate.errors)).toBe(true);

@@ -95,3 +95,13 @@ test('a wrong demo key is refused', async ({ page }) => {
   await open(page, 'wrong');
   await expect(page.getByText('backend: unauthorized')).toBeVisible();
 });
+
+test('suggested rules appear for the scene, and a chip builds its rule', async ({ page }) => {
+  await open(page);
+  await expect(page.getByText('backend: open')).toBeVisible();
+  const chips = page.getByRole('group', { name: 'Suggested rules' });
+  await expect(chips.getByRole('button')).toHaveCount(4, { timeout: 10_000 });
+  await chips.getByRole('button', { name: /slingshot the truck/ }).click();
+  await expect(page.locator('.mutator-log')).toContainText('installed', { timeout: 15_000 });
+  await expect(page.locator('.rules')).toContainText('slingshot_red_delivery_truck');
+});

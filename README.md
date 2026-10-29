@@ -57,6 +57,8 @@ The physics worker is the sandbox boundary: no DOM, network APIs removed, `postM
 
 Rules stack. Each field (gravity, an object's mass, and so on) keeps a stack of values, so removing a rule restores exactly what was there before, whatever order rules came and went in.
 
+**Not sure what to say?** As soon as objects are freed, Muse Spark looks at what's in the scene and offers four ideas as chips under the voice bar, such as "when mug hits stapler, launch mug up" or "make the cactus bounce like rubber". A chip runs exactly like a spoken command; chips tagged **AI** are generated and verified, the others are instant presets. It costs about $0.002 per new set of objects and is cached per scene.
+
 ## Golden clips
 
 Demo clips are exported once (`backend/scripts/export_golden.py`) and then play from static files with no backend. Clicks resolve by point-in-polygon, so frees are instant. The export removes objects one after another on a running plate and cuts each object's background patch from the final empty plate, so freeing objects in any order, stacks included, gives a consistent background. See [`docs/demo-runbook.md`](docs/demo-runbook.md).
