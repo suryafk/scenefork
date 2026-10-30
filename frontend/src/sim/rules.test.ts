@@ -252,7 +252,7 @@ describe('gravity presets', () => {
     for (const id of dynamic) expect(sim.pose(id).y, id).toBeGreaterThan(0);
     // Back to Earth: everything comes down again.
     sim.loadRule(preset('earth_gravity'));
-    run(sim, 240);
+    run(sim, 900); // the ball is properly bouncy now: it takes a few bounces to settle
     for (const id of dynamic) expect(Math.abs(sim.entityView(id)!.vy), id).toBeLessThan(1);
   });
 });

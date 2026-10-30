@@ -43,6 +43,12 @@ const DRAG_STIFFNESS = 12;
 const MAX_DRAG_SPEED = 30;
 const MAX_THROW_SPEED = 25;
 const HELD_ANGULAR_DAMPING = 6;
+/**
+ * Rapier averages two surfaces' bounciness by default, so a 0.8 ball on a 0.1 floor bounced like 0.45
+ * (measured: 17% of its drop height instead of about 64%). The bouncier surface wins instead: the
+ * floors and walls here only stand in for a real table, whose give is already in the object's value.
+ */
+const BOUNCE_RULE = RAPIER.CoefficientCombineRule.Max;
 /** A press this close outside a body still grabs it: hulls are simplified, the sprite's edge isn't. */
 const GRAB_SLOP_PX = 10;
 /** Steps a spawn-overlapping pair must stay apart before it collides normally. */
@@ -386,7 +392,7 @@ export class SimCore {
     const w = this.manifest.resolution.width / this.ppm;
     const h = this.manifest.resolution.height / this.ppm;
     const add = (desc: RAPIER.ColliderDesc) => {
-      const c = this.world.createCollider(desc.setFriction(0.8).setRestitution(0.15), this.ground);
+      const c = this.world.createCollider(desc.setFriction(0.8).setRestitution(0.15).setRestitutionCombineRule(BOUNCE_RULE), this.ground);
       this.colliderOwner.set(c.handle, GROUND);
       return c;
     };
@@ -505,6 +511,7 @@ export class SimCore {
       RAPIER.ColliderDesc.segment({ x: rec.floorX1, y: rec.floorY }, { x: rec.floorX2, y: rec.floorY })
         .setFriction(0.8)
         .setRestitution(0.1)
+        .setRestitutionCombineRule(BOUNCE_RULE)
         .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS)
         .setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS),
       this.ground,
@@ -528,6 +535,7 @@ export class SimCore {
   private configurePart(desc: RAPIER.ColliderDesc, spec: EntitySpec): void {
     desc
       .setRestitution(spec.physics.restitution)
+      .setRestitutionCombineRule(BOUNCE_RULE)
       .setFriction(spec.physics.friction)
       .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS)
       .setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS);

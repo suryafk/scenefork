@@ -49,6 +49,45 @@ describe('dragGain', () => {
   });
 });
 
+describe('bounce', () => {
+  /** Lift a ball to 200 px, drop it on the frame's bottom edge, return rebound height / drop height. */
+  function reboundRatio(restitution: number): number {
+    const sim = new SimCore(scene([entity('ball', box(600, 600, 40, 40), 0.6, { physics: { mass_kg: 0.6, restitution, friction: 0.8 } })]));
+    const p0 = sim.pose('ball');
+    sim.grab(p0.x, p0.y);
+    for (let i = 0; i < 90; i++) {
+      sim.drag(p0.x, 200);
+      sim.step();
+    }
+    sim.release();
+    const y0 = sim.pose('ball').y;
+    const restY = 720 - 20; // the global floor, ball centre at rest
+    let apex = Infinity;
+    let bounced = false;
+    for (let i = 0; i < 400; i++) {
+      sim.step();
+      const v = sim.entityView('ball')!.vy;
+      if (v < -0.5) bounced = true;
+      if (bounced) apex = Math.min(apex, sim.pose('ball').y);
+      if (bounced && v >= 0) break;
+    }
+    sim.free();
+    return (restY - apex) / (restY - y0);
+  }
+
+  it('a basketball keeps its own bounciness instead of averaging with the floor', () => {
+    // Rebound height goes as e squared: e = 0.8 would return 64% of the drop; the solver keeps
+    // about 49% (it was 17% when the floor's 0.1 was averaged in).
+    const r = reboundRatio(0.8);
+    expect(r).toBeGreaterThan(0.4);
+    expect(r).toBeLessThan(0.75);
+  });
+
+  it('a dead object stays dead', () => {
+    expect(reboundRatio(0.05)).toBeLessThan(0.1);
+  });
+});
+
 describe('own floors', () => {
   it('holds every synthetic entity where it was painted', () => {
     const sim = new SimCore(syntheticManifest);
