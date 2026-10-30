@@ -1,0 +1,11 @@
+{
+  "voice": "Josh",
+  "segments": [
+    "This is just a video. Or is it? Watch. I pause it, click the mug, and it leaves the frame. Real weight. Real sound. The table behind it heals itself. Now I throw it, straight into the stapler. This is a video you can touch.",
+    "Every video you have ever watched is frozen. You can look, but you can't reach in. SceneFork changes that. Pause any clip and click anything. Meta's SAM 3.1 outlines it from a single click. Muse Image paints the background back in. And Muse Spark works out what it's made of, and how much it weighs. Switch on X-ray, and you can see the collision shapes and centers of mass it just built.",
+    "Now the fun part. You change the laws of physics by talking. Zero gravity, and the whole desk lifts off. Jupiter, and everything slams back down. Moon gravity: slow, floaty arcs. Point at the mug and say, make this bouncy. Presets like these run locally, in under five milliseconds, with no model call at all. Every object keeps its own bounce, its own weight, and its own impact sound. So a ceramic mug clinks, and a book thuds.",
+    "But what if the rule doesn't exist yet? Say, slingshot the phone. Muse Spark writes a small program for it, plus its own tests. Then a hidden copy of the world runs those tests, before the rule is allowed anywhere near the real scene. Writing. Testing. Installed. Drag back, let go. Launch. Now ask for something impossible: paint it blue. It refuses, and tells you why. The AI proposes. The simulation decides.",
+    "Under the hood, this is not a mock-up. Rules run in a locked sandbox with no network. Infinite loops are killed in three hundred milliseconds. If a plugin freezes the simulation, a watchdog restarts it from a snapshot. In our tests, forty-eight of fifty generated rules passed against the real physics. Voice goes through Muse Voice, about half a second from key-up to text. And when you run out of ideas, suggestion chips offer rules for the objects on screen.",
+    "SceneFork. Any video becomes something you can touch. Games, ads, learning, anything that moves. Built solo, in four days, on Meta's SAM 3.1, Muse Spark, Muse Image and Muse Voice. Open source. Link in the thread."
+  ]
+}

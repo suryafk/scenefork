@@ -27,3 +27,4 @@ backend/.cache/
 frontend/test-results/
 frontend/playwright-report/
 frontend/dist-eval/
+demo-out/
