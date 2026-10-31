@@ -1,11 +1,41 @@
 {
-  "voice": "Josh",
   "segments": [
-    "This is just a video. Or is it? Watch. I pause it, click the mug, and it leaves the frame. Real weight. Real sound. The table behind it heals itself. Now I throw it, straight into the stapler. This is a video you can touch.",
-    "Every video you have ever watched is frozen. You can look, but you can't reach in. SceneFork changes that. Pause any clip and click anything. Meta's SAM 3.1 outlines it from a single click. Muse Image paints the background back in. And Muse Spark works out what it's made of, and how much it weighs. Switch on X-ray, and you can see the collision shapes and centers of mass it just built.",
-    "Now the fun part. You change the laws of physics by talking. Zero gravity, and the whole desk lifts off. Jupiter, and everything slams back down. Moon gravity: slow, floaty arcs. Point at the mug and say, make this bouncy. Presets like these run locally, in under five milliseconds, with no model call at all. Every object keeps its own bounce, its own weight, and its own impact sound. So a ceramic mug clinks, and a book thuds.",
-    "But what if the rule doesn't exist yet? Say, slingshot the phone. Muse Spark writes a small program for it, plus its own tests. Then a hidden copy of the world runs those tests, before the rule is allowed anywhere near the real scene. Writing. Testing. Installed. Drag back, let go. Launch. Now ask for something impossible: paint it blue. It refuses, and tells you why. The AI proposes. The simulation decides.",
-    "Under the hood, this is not a mock-up. Rules run in a locked sandbox with no network. Infinite loops are killed in three hundred milliseconds. If a plugin freezes the simulation, a watchdog restarts it from a snapshot. In our tests, forty-eight of fifty generated rules passed against the real physics. Voice goes through Muse Voice, about half a second from key-up to text. And when you run out of ideas, suggestion chips offer rules for the objects on screen.",
-    "SceneFork. Any video becomes something you can touch. Games, ads, learning, anything that moves. Built solo, in four days, on Meta's SAM 3.1, Muse Spark, Muse Image and Muse Voice. Open source. Link in the thread."
-  ]
+    "This is a video.",
+    "One click, and the mug is out of the frame. It has weight. It has a sound. This is a video you can touch.",
+    "We spend hours watching video, and all of it is read-only. SceneFork turns any paused video into a physical world you can touch, and reprogram by talking to it.",
+    "Here's a new clip, made with AI for this test. Open it, pause, fork.",
+    "Click the mug. SAM 3.1 outlines it from that one click.",
+    "Muse Image paints the table back in behind it.",
+    "Muse Spark works out what it's made of, and what it weighs.",
+    "Free the rest, and throw them. Each one sounds like what it is.",
+    "X-Ray shows the collision shapes and centers of mass the models just built.",
+    "Now change the laws of physics. Hold space, and talk.",
+    "The whole table lifts off.",
+    "Everything slams down. Moon and Mars are one click. Now point at the ball.",
+    "This means whatever you're pointing at.",
+    "Muse Voice gets you text in about half a second. Presets apply in under five milliseconds.",
+    "But what if the rule doesn't exist yet?",
+    "Muse Spark writes a small program, plus its own tests. A shadow copy of the world runs them before the rule can touch the real scene.",
+    "Here's the code, and the checks it had to pass.",
+    "Drag it back. Let go.",
+    "Not sure what to ask? Muse Spark suggests ideas from the scene. One tap, same tests. Rules stack, and removing one restores what was there.",
+    "It refuses, and tells you why. The AI proposes. The simulation decides.",
+    "Here's how it stays safe. New rules run first in a shadow world, in a worker with no network. A rule that does nothing is rejected. A failed test goes back to the model, up to twice. Stuck plugins die in three hundred milliseconds. On our demo scene, forty-eight of fifty generated rules passed. Built on React, Pixi and Rapier, with FastAPI and OpenCV.",
+    "Where this goes. A student films their own world, changes gravity, and sees the result, no lab, no code. A Reel becomes something viewers play with and remix by talking to it. A phone clip becomes a game prototype. The deepest idea: generated code proves itself in a shadow world before it touches the real one. That fits anywhere agents act on live systems. Physics runs on the viewer's device, so the main cost is model calls, about a cent and a half per object.",
+    "SceneFork. Any video becomes something you can touch. Built solo, in four days, on Meta's models. Open source, on GitHub."
+  ],
+  "xcut": [
+    "Every video you have watched is frozen. This one is not.",
+    "Say zero gravity, and the whole table floats.",
+    "Ask for a slingshot. An AI writes the rule, and a shadow copy of the world tests it first.",
+    "Ask for something impossible, and it refuses.",
+    "SceneFork. Any video becomes something you can touch. Open source, link below."
+  ],
+  "commands": {
+    "zerog": "Zero gravity.",
+    "jupiter": "Jupiter gravity.",
+    "bouncy": "Make this bouncy.",
+    "sling": "When I pull the phone back and let go, slingshot it the other way.",
+    "blue": "Paint it blue."
+  }
 }
