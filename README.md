@@ -146,6 +146,51 @@ pnpm --dir frontend dev
 
 Go to http://localhost:5173 in Chrome. The bar above the stage shows the connection, for example `backend: open · fake models (free)`.
 
+### Or run it with Docker
+
+Docker runs both halves from one command, so there's nothing to install except Docker. You need [Docker Desktop](https://docs.docker.com/desktop/), or Docker Engine with the Compose plugin (version 2.24 or newer).
+
+From the repo root:
+
+```bash
+docker compose up --build
+```
+
+The first build takes a few minutes: it installs the dependencies and builds the frontend. When it's done, go to http://localhost:5173 in Chrome. The bar above the stage should say `backend: open · fake models (free)`.
+
+To stop it:
+
+```bash
+docker compose down
+```
+
+Two containers run:
+
+| Service | Port | What it is |
+|---|---|---|
+| `web` | 5173 | The built frontend, served by nginx |
+| `backend` | 8000 | The FastAPI backend (health check at `/health`) |
+
+**Live models.** Create `backend/.env` as described in [Use the real Meta models](#use-the-real-meta-models), then recreate the backend so it reads the file:
+
+```bash
+docker compose up -d --force-recreate backend
+```
+
+**Your data.** The spend ledger and the response cache live in Docker volumes (`spend` and `cache`), so they survive restarts and the spend cap keeps counting. `docker compose down -v` deletes them, which also resets the ledger the cap counts against.
+
+**A different address.** The address the browser uses for the backend is fixed when the frontend is built (default `http://localhost:8000`). To change it, rebuild with `--build-arg VITE_BACKEND_URL=<address>`, and add the frontend's address to `SCENEFORK_ALLOWED_ORIGINS` for the backend.
+
+**Each half on its own.** The [`Dockerfile`](Dockerfile) has one target per half:
+
+```bash
+docker build --target backend -t scenefork-backend .
+```
+
+```bash
+docker build --target web -t scenefork-web .
+```
+
 ### Try it
 
 1. Drag anything in the offline demo street and throw it.
@@ -244,6 +289,7 @@ backend/    FastAPI: WebSocket session, model adapters, spend ledger, golden exp
 shared/     contracts both sides load: plugin API, JSON schemas, presets, fixtures
 docs/       model probe results, demo runbook, demo video script and tools
 evals/      mutator and grounding evals, with results
+Dockerfile  backend and web images (docker-compose.yml runs both)
 ```
 
 ## Licence

@@ -1,0 +1,35 @@
+# Runs SceneFork: docker compose up --build, then open http://localhost:5173
+#
+# Fake models by default (free, no key). For the real Meta models, create backend/.env
+# (copy backend/.env.example) with MODEL_API_KEY and SCENEFORK_ADAPTERS=live; it is picked up
+# here if it exists. See "Run with Docker" in the README.
+services:
+  backend:
+    build:
+      context: .
+      target: backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: backend/.env
+        required: false
+    volumes:
+      # The spend ledger (it enforces the spend cap) and the response cache survive restarts.
+      - spend:/app/backend/.spend
+      - cache:/app/backend/.cache
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      # The backend allows the origin http://localhost:5173 by default, so keep this host port.
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  spend:
+  cache:

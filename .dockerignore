@@ -1,0 +1,29 @@
+# Keep the build context small and keep secrets out of every image layer.
+
+# secrets and local state
+.env
+*.env
+!.env.example
+backend/.env
+backend/.spend/
+backend/.cache/
+
+# dependencies and build output (the image installs and builds its own)
+**/node_modules/
+**/.venv/
+**/__pycache__/
+frontend/dist/
+frontend/dist-eval/
+frontend/test-results/
+frontend/playwright-report/
+
+# not needed to build or run the app
+.git/
+.gstack/
+.DS_Store
+demo-out/
+docs/
+evals/
+*.pdf
+backend/tests/
+backend/scripts/probe_out/
