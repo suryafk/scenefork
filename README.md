@@ -91,6 +91,14 @@ Demo clips are exported once (`backend/scripts/export_golden.py`) and then play 
 
 ## Run it locally
 
+Pick one way. Both give you the same app at http://localhost:5173.
+
+| | Docker (easiest) | Without Docker |
+|---|---|---|
+| You install | Docker | Node, pnpm, Python, uv |
+| Start with | one command | two terminals |
+| Best for | trying it | changing the code |
+
 SceneFork runs in two modes. **Fake models** are the default: they're free, need no API key, and are the quickest way to try it. **Live models** use the real Meta models and spend your API credits.
 
 | | Fake models (default) | Live models |
@@ -100,15 +108,20 @@ SceneFork runs in two modes. **Fake models** are the default: they're free, need
 | Spoken commands | Chrome's speech recognition | Muse Voice |
 | New rules | Four built-in commands: slingshot, spin, sideways gravity, heavy. Anything else comes back as "not possible". | Any rule; Muse Spark writes it |
 
-### 1. Install the requirements
+You also need Google Chrome, for voice and the end-to-end tests.
 
-- [Node.js](https://nodejs.org) 22 or newer
-- [pnpm](https://pnpm.io/installation)
-- Python 3.12 or newer
-- [uv](https://docs.astral.sh/uv/)
-- Google Chrome, for voice and the end-to-end tests
+### Option A: Docker (easiest)
 
-### 2. Get the code and its dependencies
+**1. Install Docker** (skip if `docker compose version` already prints a version):
+
+| Your system | Install |
+|---|---|
+| macOS | [Docker Desktop](https://docs.docker.com/desktop/setup/install/mac-install/). Open it once and wait until it says the engine is running. |
+| Windows | [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) with the WSL 2 backend. |
+| Linux | [Docker Engine](https://docs.docker.com/engine/install/) plus the [Compose plugin](https://docs.docker.com/compose/install/linux/). |
+| macOS without Desktop | `brew install docker docker-compose colima`, then `colima start`, and link the plugin as shown in [Troubleshooting](#troubleshooting). |
+
+**2. Get the code and start it:**
 
 ```bash
 git clone https://github.com/suryafk/scenefork.git
@@ -119,50 +132,18 @@ cd scenefork
 ```
 
 ```bash
-pnpm --dir frontend install
-```
-
-```bash
-cd backend && uv sync && cd ..
-```
-
-### 3. Start the backend
-
-In one terminal, from the repo root:
-
-```bash
-cd backend && uv run uvicorn app.asgi:app --port 8000
-```
-
-### 4. Start the frontend
-
-In a second terminal, from the repo root:
-
-```bash
-pnpm --dir frontend dev
-```
-
-### 5. Open the app
-
-Go to http://localhost:5173 in Chrome. The bar above the stage shows the connection, for example `backend: open · fake models (free)`.
-
-### Or run it with Docker
-
-Docker runs both halves from one command, so there's nothing to install except Docker. You need [Docker Desktop](https://docs.docker.com/desktop/), or Docker Engine with the Compose plugin (version 2.24 or newer).
-
-From the repo root:
-
-```bash
 docker compose up --build
 ```
 
-The first build takes a few minutes: it installs the dependencies and builds the frontend. When it's done, go to http://localhost:5173 in Chrome. The bar above the stage should say `backend: open · fake models (free)`.
+The first build takes a few minutes: it installs the dependencies and builds the frontend. When the logs go quiet, go to http://localhost:5173 in Chrome. The bar above the stage should say `backend: open · fake models (free)`.
 
-To stop it:
+To stop it, press Ctrl+C, then:
 
 ```bash
 docker compose down
 ```
+
+Later runs start in seconds. Add `-d` to run it in the background, and rerun with `--build` after you pull new code.
 
 Two containers run:
 
@@ -190,6 +171,47 @@ docker build --target backend -t scenefork-backend .
 ```bash
 docker build --target web -t scenefork-web .
 ```
+
+### Option B: Without Docker
+
+**1. Install the requirements:**
+
+- [Node.js](https://nodejs.org) 22 or newer
+- [pnpm](https://pnpm.io/installation)
+- Python 3.12 or newer
+- [uv](https://docs.astral.sh/uv/)
+
+**2. Get the code and its dependencies:**
+
+```bash
+git clone https://github.com/suryafk/scenefork.git
+```
+
+```bash
+cd scenefork
+```
+
+```bash
+pnpm --dir frontend install
+```
+
+```bash
+cd backend && uv sync && cd ..
+```
+
+**3. Start the backend.** In one terminal, from the repo root:
+
+```bash
+cd backend && uv run uvicorn app.asgi:app --port 8000
+```
+
+**4. Start the frontend.** In a second terminal, from the repo root:
+
+```bash
+pnpm --dir frontend dev
+```
+
+**5. Open the app.** Go to http://localhost:5173 in Chrome. The bar above the stage shows the connection, for example `backend: open · fake models (free)`.
 
 ### Try it
 
@@ -226,7 +248,7 @@ Live calls cost money. Expect about $0.014 per freed object and about $0.007 per
    SCENEFORK_ADAPTERS=live
    ```
 
-3. Restart the backend. The bar should now say `live models`.
+3. Restart the backend (with Docker: `docker compose up -d --force-recreate backend`). The bar should now say `live models`.
 
 Every live call goes through a spend ledger (`backend/.spend/ledger.jsonl`) with a hard cap. Identical requests replay free from a disk cache (`backend/.cache`). Never commit `backend/.env`.
 
@@ -256,6 +278,10 @@ To point the frontend at a backend on another address, set `VITE_BACKEND_URL` wh
 | A clip is refused | Clips over 30 seconds are refused. Trim it first. |
 | A click says "try another spot" | Masks wider than 75% of the frame count as background. Click a smaller, clearer object. |
 | Live calls are refused | The spend cap was reached. Raise `SPEND_CAP_USD`. |
+| `docker: unknown command: docker compose` | The Compose plugin is missing. Install Docker Desktop, or with Homebrew run `brew install docker-compose`, then `mkdir -p ~/.docker/cli-plugins && ln -sfn "$(brew --prefix)/opt/docker-compose/bin/docker-compose" ~/.docker/cli-plugins/docker-compose`. |
+| `Cannot connect to the Docker daemon` | No engine is running. Open Docker Desktop, or with Homebrew run `brew install colima && colima start`. |
+| Port 5173 or 8000 is already in use | Stop the other copy (`docker compose down`, or the dev servers from Option B). The backend only allows the origin `http://localhost:5173` by default, so free that port rather than moving it. |
+| Docker shows an old version of the app | Rebuild: `docker compose up --build`. |
 
 ## Tests
 
