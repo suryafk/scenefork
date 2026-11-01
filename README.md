@@ -313,7 +313,7 @@ No test calls a paid model. Contract fixtures in `shared/fixtures/` are checked 
 frontend/   Vite + React + TypeScript, Pixi v8, Rapier 2D (physics and verifier workers)
 backend/    FastAPI: WebSocket session, model adapters, spend ledger, golden export
 shared/     contracts both sides load: plugin API, JSON schemas, presets, fixtures
-docs/       model probe results, demo runbook, demo video script and tools
+docs/       model probe results, demo runbook, screenshots
 evals/      mutator and grounding evals, with results
 Dockerfile  backend and web images (docker-compose.yml runs both)
 ```

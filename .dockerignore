@@ -21,7 +21,6 @@ frontend/playwright-report/
 .git/
 .gstack/
 .DS_Store
-demo-out/
 docs/
 evals/
 *.pdf
